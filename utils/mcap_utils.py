@@ -128,11 +128,11 @@ def get_rec_info(directory: str, recursive: bool = False) -> Dict[str, Any]:
                 merged_info["topics"][topic] = {
                        "name": topic,
                     "type": info["message_type"],
-                    "count": 0,
                     "start_time": None,
                     "end_time": None,
+                    "duration": None,
+                    "count": 0,
                     "frequency": None,
-                    "duration": None
                 }
             merged_topic_info = merged_info["topics"][topic]
             merged_topic_info["count"] += info["num_messages"]
