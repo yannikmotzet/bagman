@@ -18,12 +18,20 @@ def load_rec_metadata(recording_path, file_name="rec_metadata.yaml"):
         return None
 
 
-def ingest_recording(recording_path, database, override=False):
+def ingest_recording(recording_path, database, override=False, store_file=True):
     rec_info = mcap_utils.get_rec_info(recording_path)
     rec_metadata = load_rec_metadata(recording_path)
 
     if rec_metadata:
         rec_info.update(rec_metadata)
+
+    if store_file:
+        # TODO backup old file
+        try:
+            with open(os.path.join(recording_path, "rec_metadata.yaml"), 'w') as file:
+                yaml.dump(rec_info, file)
+        except Exception as e:
+            pass
 
     db = TinyDB(database)
     Recordings = Query()
