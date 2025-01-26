@@ -85,10 +85,10 @@ def get_rec_info(directory: str, recursive: bool = False) -> Dict[str, Any]:
 
     merged_info = {
         "name": os.path.basename(directory),
-        "path": directory,
         "start_time": None,
         "end_time": None,
         "duration": None,
+        "path": directory,
         "size": 0,
         "files": {},
         "topics": {}
@@ -108,7 +108,7 @@ def get_rec_info(directory: str, recursive: bool = False) -> Dict[str, Any]:
         file_duration = file_end_time - file_start_time
         relative_file_path = os.path.relpath(file_path, directory)
         merged_info["files"][relative_file_path] = {
-            #    "path": relative_file_path,
+            "path": relative_file_path,
             "start_time": file_start_time,
             "end_time": file_end_time,
             "duration": file_duration,
@@ -126,7 +126,7 @@ def get_rec_info(directory: str, recursive: bool = False) -> Dict[str, Any]:
         for topic, info in mcap_info.items():
             if topic not in merged_info["topics"]:
                 merged_info["topics"][topic] = {
-                    #    "name": topic,
+                       "name": topic,
                     "type": info["message_type"],
                     "count": 0,
                     "start_time": None,
@@ -150,8 +150,7 @@ def get_rec_info(directory: str, recursive: bool = False) -> Dict[str, Any]:
         merged_info["size"] = sum(file_info["size"] for file_info in merged_info["files"].values())
 
     # convert topics and files to lists
-    # merged_info["topics"] = list(merged_info["topics"].values())
-    merged_info["topics"] = merged_info["topics"]
-    merged_info["files"]
+    merged_info["topics"] = list(merged_info["topics"].values())
+    merged_info["files"] = list(merged_info["files"].values())
 
     return merged_info
