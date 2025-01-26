@@ -71,7 +71,6 @@ def select_recording(selected_recording):
         with tab_download:
             st.download_button("Download", f"/home/yamo/recordings/{result[0]['path']}", f"{result[0]['name']}.mcap", key="download")
 
-
 def filter_recording(data, container):
     # for each column create a filter for the specific data type
     for column in data.columns.tolist():
@@ -121,17 +120,8 @@ def filter_recording(data, container):
 
     return data
 
-
-def main():
-    st.set_page_config(
-        page_title="bagman",
-        page_icon="🛍️",
-        layout = "wide",
-        # initial_sidebar_state="collapsed",
-        initial_sidebar_state="expanded",
-    )
-    st.title('🛍️ bagman')
-
+def st_page_recordings():
+    st.header("Recordings")
     data = load_tinydb(DATABASE)
     num_total_data = len(data)
     columns = data.columns.tolist()
@@ -194,6 +184,31 @@ def main():
     if len(selected_rows) > 0:
         select_recording(data.iloc[selected_rows[0]]["name"])
 
+def st_page_jobs():
+    st.header("Jobs")
+    st.write("Jobs are not implemented yet")
+
+def st_page_upload():
+    st.header("Uploads")
+    # TODO change max file size
+    st.file_uploader("Upload recording", type=["mcap", "json", "yaml"], accept_multiple_files=True)
+
+def main():
+    pg = st.navigation([
+        st.Page(st_page_recordings, title="Recordings", url_path="recordings"),
+        st.Page(st_page_jobs, title="Jobs", url_path="jobs"),
+        st.Page(st_page_upload, title="Upload", url_path="upload"),
+    ])
+
+    st.set_page_config(
+    page_title="bagman",
+    page_icon="🛍️",
+    layout = "wide",
+    # initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
+    )
+    st.title("🛍️ bagman")
+    pg.run()
 
 if __name__ == "__main__":
     main()
