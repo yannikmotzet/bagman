@@ -3,16 +3,7 @@ import pandas as pd
 import numpy as np
 import tinydb
 import sqlite3
-
-IGNORED_COLUMNS = ['files', 'topics'] # these columns will be deleted
-MANDATORY_COLUMNS = [] # colums which will always be displayed
-DEFAULT_COLUMNS = ['start_time', 'name', 'duration', 'description', 'path'] # columns which are displayed by default, others can be selected
-# HIDDEN_COLUMNS = ['end_time', 'operator', 'location', 'size', 'vehicle'] # columns which are hidden by default, but can be selected
-COLUMNS_NO_FILTER = ['name', 'path', 'description'] # columns which cannot be filtered
-COLUMN_TIMEDELTA = ['duration'] # columns which are of type timedelta
-DATABASE = "/home/yamo/recordings/recordings.json"
-DATABASE_TABLE = "2024-01"
-MAX_CATEGORIES = 3
+from utils import bagman_utils
 
 @st.cache_data
 def load_sqlite3(database, table):
@@ -31,7 +22,7 @@ def load_tinydb(database):
     db = tinydb.TinyDB(database)
     records = db.all()
     df = pd.DataFrame(records)
-    df = df.drop(columns=IGNORED_COLUMNS, errors='ignore')
+    df = df.drop(columns=config["dash_cols_ignore"], errors='ignore')
     for col in ["start_time", "end_time"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], unit='s', errors='coerce')
@@ -41,7 +32,7 @@ def load_tinydb(database):
     return df
 
 def select_recording(selected_recording):
-    db = tinydb.TinyDB(DATABASE)
+    db = tinydb.TinyDB(config["database_path"])
     query = tinydb.Query()
     result = db.search(query.name == selected_recording)
 
@@ -61,12 +52,12 @@ def select_recording(selected_recording):
         with tab_topics:
             if "topics" in result[0]:
                 topics_df = pd.DataFrame(result[0]["topics"])
-                st.dataframe(topics_df, hide_index=True, use_container_width=True)
+                st.dataframe(topics_df, hide_index=True, use_container_width=True, height=600)
 
         with tab_files:
             if "files" in result[0]:
                 files_df = pd.DataFrame(result[0]["files"])
-                st.dataframe(files_df, hide_index=True, use_container_width=True)
+                st.dataframe(files_df, hide_index=True, use_container_width=True, height=250)
 
         with tab_download:
             st.download_button("Download", f"/home/yamo/recordings/{result[0]['path']}", f"{result[0]['name']}.mcap", key="download")
@@ -74,7 +65,7 @@ def select_recording(selected_recording):
 def filter_recording(data, container):
     # for each column create a filter for the specific data type
     for column in data.columns.tolist():
-        if column in COLUMNS_NO_FILTER:
+        if column in config["dash_cols_no_filter"]:
             continue
         if data.empty:
             continue
@@ -101,7 +92,7 @@ def filter_recording(data, container):
 
         # categorial data
         unique_values = data[column].unique().tolist()
-        if len(unique_values) <= MAX_CATEGORIES or data[column].dtype == object:
+        if len(unique_values) <= config["dash_max_categories"]:
             # TODO sort values
             filter_categories = container.segmented_control(f'Filter {column}', options=unique_values, default=unique_values, selection_mode="multi", key=f"{column}")
             if filter_categories:
@@ -122,7 +113,7 @@ def filter_recording(data, container):
 
 def st_page_recordings():
     st.header("Recordings")
-    data = load_tinydb(DATABASE)
+    data = load_tinydb(config["database_path"])
     num_total_data = len(data)
     columns = data.columns.tolist()
 
@@ -140,15 +131,15 @@ def st_page_recordings():
         data = data[data.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)]
 
     # option to add/remove columns (alternative: st.pills, st.segmented_control with selection_mode="multi")
-    selectable_columns = [col for col in columns if col not in MANDATORY_COLUMNS]
+    selectable_columns = [col for col in columns if col not in config["dash_cols_mandatory"]]
     # default_columns = [c for c in selectable_columns if c not in HIDDEN_COLUMNS]
-    selected_columns = st_sidebar.multiselect("Show columns", options=selectable_columns, default=DEFAULT_COLUMNS)
+    selected_columns = st_sidebar.multiselect("Show columns", options=selectable_columns, default=config["dash_cols_default"])
     
     # apply selected columns to the data
-    data = data[MANDATORY_COLUMNS + selected_columns]
+    data = data[config["dash_cols_mandatory"] + selected_columns]
 
     # reorder default columns
-    valid_default_columns = [col for col in DEFAULT_COLUMNS if col in data.columns]
+    valid_default_columns = [col for col in config["dash_cols_default"] if col in data.columns]
     ordered_columns = valid_default_columns + [col for col in data.columns if col not in valid_default_columns]
     data = data[ordered_columns]
     
@@ -161,7 +152,7 @@ def st_page_recordings():
         st_metric_number_results.metric("number filtered results", len(data))
 
     # fix the issue of timedelta64[ns] not being displayed correctly (https://discuss.streamlit.io/t/streamlit-treats-timedelta-column-as-strings/84487)
-    for column in COLUMN_TIMEDELTA:
+    for column in config["dash_cols_timedelta"]:
         if column in data.columns:
             data[column] = data[column].apply(lambda x: str(x) if pd.isnull(x) else f"{int(x.total_seconds() // 3600):02}:{int((x.total_seconds() % 3600) // 60):02}:{int(x.total_seconds() % 60):02}")
     
@@ -194,6 +185,9 @@ def st_page_upload():
     st.file_uploader("Upload recording", type=["mcap", "json", "yaml"], accept_multiple_files=True)
 
 def main():
+    global config
+    config = bagman_utils.load_config()
+
     pg = st.navigation([
         st.Page(st_page_recordings, title="Recordings", url_path="recordings"),
         st.Page(st_page_jobs, title="Jobs", url_path="jobs"),

@@ -3,6 +3,10 @@ import yaml
 import os
 from tinydb import TinyDB, Query
 
+def load_config(file_path="config.yaml"):
+    with open(file_path, "r") as file:
+        return yaml.safe_load(file)
+
 def load_rec_metadata(recording_path, file_name="rec_metadata.yaml"):
     try:
         with open(os.path.join(recording_path, file_name), 'r') as file:

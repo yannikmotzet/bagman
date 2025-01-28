@@ -1,0 +1,11 @@
+# common filters
+recording_path: /data/recordings
+database_path: /data/recordings/recordings/.database/recordings.json
+
+# dashboard settings
+dash_cols_mandatory: [] # colums which will always be displayed
+dash_cols_ignore: ['files', 'topics'] # these columns will be deleted from the dataframe
+dash_cols_default: ['start_time', 'name', 'duration', 'description', 'path'] # columns which are displayed by default, others can be selected
+dash_cols_no_filter: ['name', 'path', 'description'] # columns which cannot be filtered
+dash_cols_timedelta: ['duration'] # columns which are of type timedelta
+dash_max_categories: 10 # max unique values for a column to apply categorial filter
