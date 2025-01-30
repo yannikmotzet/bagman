@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -113,7 +114,14 @@ def filter_recording(data, container):
 
 def st_page_recordings():
     st.header("Recordings")
-    data = load_tinydb(config["database_path"])
+    if not os.path.exists(config["database_path"]):
+        st.error("Database not found")
+        return
+    try:
+        data = load_tinydb(config["database_path"])
+    except Exception as e:
+        st.error(f"Error loading database: {e}")
+        return
     num_total_data = len(data)
     columns = data.columns.tolist()
 
@@ -186,7 +194,11 @@ def st_page_upload():
 
 def main():
     global config
-    config = bagman_utils.load_config()
+    try:
+        config = bagman_utils.load_config()
+    except Exception as e:
+        st.error(f"Error loading config: {e}")
+        return
 
     pg = st.navigation([
         st.Page(st_page_recordings, title="Recordings", url_path="recordings"),

@@ -1,14 +1,41 @@
-# bagman
-**bagman** is a ROS 2 **bag man**agement tool
+# Bagman
 
-![bagman screenshot](resources/bagman_screenshot.jpg)
+**Bagman** is a ROS 2 **bag** (.mcap) **man**agement tool.
 
-* database: [tinydb](https://github.com/msiemens/tinydb)
-* dashboard: [streamlit](https://github.com/streamlit/streamlit)
-* pipeline (TODO): [perfect](https://github.com/PrefectHQ/prefect)
-* process communication (TODO): [redis](https://github.com/redis/redis)
+![Bagman Screenshot](resources/bagman_screenshot.jpg)
+
+## Features
+
+- **Database:** [TinyDB](https://github.com/msiemens/tinydb)
+- **Dashboard:** [Streamlit](https://github.com/streamlit/streamlit)
+- **Pipeline (TODO):** [Prefect](https://github.com/PrefectHQ/prefect)
+
+
+## Prerequisites
+
+- Docker
+- Docker Compose
+- yq
 
 ## Installation
-* clone repo
-* ```docker build -t bagman .```
-* ```docker run -d -p 8501:8501 bagman```
+
+1. Clone the repository:
+    ```sh
+    git clone /home/yamo/code/bagman
+    cd bagman
+    ```
+
+2. Build the Docker image:
+    ```sh
+    docker build -t bagman .
+    ```
+
+3. Set the recording path:
+    ```sh
+    echo "RECORDING_PATH=$(yq '.recording_path' config.yaml)" > .env
+    ```
+
+4. Start the application:
+    ```sh
+    docker-compose up
+    ```
