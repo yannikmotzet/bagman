@@ -4,6 +4,8 @@ services:
   bagman:
     image: bagman
     ports:
-      - "8501:8501"
+      - "${DASHBOARD_PORT}:${DASHBOARD_PORT}"
     volumes:
       - ${RECORDING_PATH}:${RECORDING_PATH}
+    environment:
+      - DASHBOARD_PORT=${DASHBOARD_PORT}

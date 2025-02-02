@@ -17,11 +17,10 @@ RUN . venv/bin/activate && pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code into the container
 COPY . .
 
-# Expose the port that Streamlit will run on
+# Expose the default port Streamlit might use (8501)
 EXPOSE 8501
 
-# Set environment variable to disable Streamlit usage statistics
-ENV STREAMLIT_DISABLE_USAGE_STATS=true
+RUN echo "DASHBOARD_PORT is set to: ${DASHBOARD_PORT}"
 
 # Command to run the Streamlit application within the virtual environment
-CMD ["/bin/bash", "-c", ". venv/bin/activate && streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0"]
+CMD ["/bin/bash", "-c", ". venv/bin/activate && streamlit run dashboard.py --server.port=${DASHBOARD_PORT} --server.address=0.0.0.0 --browser.gatherUsageStats false"]

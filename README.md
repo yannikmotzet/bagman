@@ -6,10 +6,10 @@
 
 ## Features
 
+- **CLI**
 - **Database:** [TinyDB](https://github.com/msiemens/tinydb)
 - **Dashboard:** [Streamlit](https://github.com/streamlit/streamlit)
 - **Pipeline (TODO):** [Prefect](https://github.com/PrefectHQ/prefect)
-
 
 ## Prerequisites
 
@@ -33,9 +33,24 @@
 3. Set the recording path:
     ```sh
     echo "RECORDING_PATH=$(yq '.recording_path' config.yaml)" > .env
+    echo "DASHBOARD_PORT=$(yq '.dashboard_port' config.yaml)" >> .env
     ```
 
 4. Start the application:
     ```sh
-    docker-compose up
+    docker-compose up -d
+    ```
+
+## Contributing
+
+Use pre-commit:
+
+1. Install pre-commit:
+    ```sh
+    pip install pre-commit
+    ```
+
+2. Run pre-commit:
+    ```sh
+    pre-commit
     ```
