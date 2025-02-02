@@ -50,12 +50,12 @@ def get_mcap_info(file: str) -> Dict[str, Any]:
     return channel_info
 
 
-def get_rec_info(directory: str, recursive: bool = False) -> Dict[str, Any]:
+def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]:
     """
-    Collects and merges information from all .mcap files in the specified directory.
+    Collects and merges information from all .mcap files in the specified directory path.
     
     Args:
-        directory (str): The directory to search for .mcap files.
+        recording_path (str): The recording directory path to search for .mcap files.
     
     Returns:
         Dict[str, Any]: A dictionary containing merged information about the recordings, including:
@@ -78,17 +78,17 @@ def get_rec_info(directory: str, recursive: bool = False) -> Dict[str, Any]:
                 - frequency (float): The frequency of messages in the topic.
                 - duration (float): The duration of the topic.
     """
-    mcap_files = sorted(glob.glob(os.path.join(directory, '*.mcap'), recursive=recursive))
+    mcap_files = sorted(glob.glob(os.path.join(recording_path, '*.mcap'), recursive=recursive))
 
     if len(mcap_files) == 0:
         return None
 
     merged_info = {
-        "name": os.path.basename(directory),
+        "name": os.path.basename(recording_path),
         "start_time": None,
         "end_time": None,
         "duration": None,
-        "path": directory,
+        "path": recording_path,
         "size": 0,
         "files": {},
         "topics": {}
@@ -106,7 +106,7 @@ def get_rec_info(directory: str, recursive: bool = False) -> Dict[str, Any]:
         file_start_time = min(info["start_time"] for info in mcap_info.values())
         file_end_time = max(info["end_time"] for info in mcap_info.values())
         file_duration = file_end_time - file_start_time
-        relative_file_path = os.path.relpath(file_path, directory)
+        relative_file_path = os.path.relpath(file_path, recording_path)
         merged_info["files"][relative_file_path] = {
             "path": relative_file_path,
             "start_time": file_start_time,
