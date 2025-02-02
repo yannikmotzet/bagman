@@ -1,5 +1,11 @@
 config.yaml
 
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
