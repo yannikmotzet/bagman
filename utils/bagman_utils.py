@@ -1,11 +1,14 @@
-from utils import mcap_utils
-import yaml
 import os
-from tinydb import TinyDB, Query
 import shutil
+
+import yaml
+from tinydb import Query, TinyDB
 from tqdm import tqdm
 
+from utils import mcap_utils
+
 # TODO outsource TiniDB code for more modularity
+
 
 def load_config(file_path="config.yaml"):
     """
@@ -21,12 +24,13 @@ def load_config(file_path="config.yaml"):
 
     with open(file_path, "r") as file:
         return yaml.safe_load(file)
-    
+
+
 def upload_recording(path, recordings_path, move=False, verbose=True):
     """
     Upload a recording to the specified recordings directory.
 
-        move (bool, optional): If True, the recording file will be moved to the recordings directory. 
+        move (bool, optional): If True, the recording file will be moved to the recordings directory.
                                If False, the recording file will be copied. Default is False.
         verbose (bool, optional): If True, prints the upload progress. Default is True.
 
@@ -48,6 +52,7 @@ def upload_recording(path, recordings_path, move=False, verbose=True):
         # TODO check if upload was successful
         os.remove(path)
 
+
 def load_metadata_file(recording_path, file_name="rec_metadata.yaml"):
     """
     Load recording metadata from a YAML file.
@@ -63,10 +68,12 @@ def load_metadata_file(recording_path, file_name="rec_metadata.yaml"):
     """
 
     try:
-        with open(os.path.join(recording_path, file_name), 'r') as file:
+        with open(os.path.join(recording_path, file_name), "r") as file:
             return yaml.safe_load(file)
     except FileNotFoundError:
-        print(f"Error: The file {file_name} was not found in the directory {recording_path}.")
+        print(
+            f"Error: The file {file_name} was not found in the directory {recording_path}."
+        )
         return None
     except yaml.YAMLError as exc:
         print(f"Error parsing YAML file {file_name}: {exc}")
@@ -74,7 +81,8 @@ def load_metadata_file(recording_path, file_name="rec_metadata.yaml"):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return None
-    
+
+
 def db_load(database):
     """
     Load all records from the specified TinyDB database.
@@ -86,9 +94,15 @@ def db_load(database):
 
     db = TinyDB(database)
     return db.all()
-    
-def db_ingest_recording(recording_path, database, override=False, sort_by="start_time", store_metadata_file=True):
-    
+
+
+def db_ingest_recording(
+    recording_path,
+    database,
+    override=False,
+    sort_by="start_time",
+    store_metadata_file=True,
+):
     """
     Ingests a recording into the specified database and optionally stores the recording metadata file.
     Args:
@@ -102,7 +116,7 @@ def db_ingest_recording(recording_path, database, override=False, sort_by="start
     Returns:
         None
     """
-    
+
     rec_info = mcap_utils.get_rec_info(recording_path)
     rec_metadata = load_metadata_file(recording_path)
 
@@ -112,7 +126,7 @@ def db_ingest_recording(recording_path, database, override=False, sort_by="start
     if store_metadata_file:
         # TODO backup old file
         try:
-            with open(os.path.join(recording_path, "rec_metadata.yaml"), 'w') as file:
+            with open(os.path.join(recording_path, "rec_metadata.yaml"), "w") as file:
                 yaml.dump(rec_info, file)
         except Exception as e:
             pass
@@ -130,11 +144,14 @@ def db_ingest_recording(recording_path, database, override=False, sort_by="start
     if sort_by:
         # Sort the database by start_time, newest on top
         all_records = db.all()
-        sorted_records = sorted(all_records, key=lambda x: x.get(sort_by, ''), reverse=True)
-        
+        sorted_records = sorted(
+            all_records, key=lambda x: x.get(sort_by, ""), reverse=True
+        )
+
         db.truncate()  # Clear the database
         db.insert_multiple(sorted_records)  # Insert sorted records
-    
+
+
 def db_get_recording_info(recording_name, database):
     """
     Retrieve recording information from the database.
@@ -144,11 +161,12 @@ def db_get_recording_info(recording_name, database):
     Returns:
         dict: A dictionary containing the recording information if found, otherwise None.
     """
-    
+
     db = TinyDB(database)
     Recordings = Query()
     return db.get(Recordings.name == recording_name)
-    
+
+
 def db_exists_recording(recording_name, database):
     """
     Check if a recording exists in the database.
@@ -162,6 +180,7 @@ def db_exists_recording(recording_name, database):
     db = TinyDB(database)
     Recordings = Query()
     return db.contains(Recordings.name == recording_name)
+
 
 def db_delete_recording(recording_name, database):
     """

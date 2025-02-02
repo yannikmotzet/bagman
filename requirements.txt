@@ -8,3 +8,4 @@ pyaml
 tinydb
 click
 tqmd
+pre-commit

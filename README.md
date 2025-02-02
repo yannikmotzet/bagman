@@ -9,7 +9,7 @@
 - **CLI**
 - **Database:** [TinyDB](https://github.com/msiemens/tinydb)
 - **Dashboard:** [Streamlit](https://github.com/streamlit/streamlit)
-- **Pipeline (TODO):** [Prefect](https://github.com/PrefectHQ/prefect)
+- **Pipeline (TODO):** [Perfect](https://github.com/PrefectHQ/prefect)
 
 ## Prerequisites
 
