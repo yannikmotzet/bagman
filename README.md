@@ -7,7 +7,7 @@
 ## Features
 
 - **CLI**
-- **Database:** [TinyDB](https://github.com/msiemens/tinydb)
+- **Database:** [TinyDB](https://github.com/msiemens/tinydb) (can easyily be replaced with custom database)
 - **Dashboard:** [Streamlit](https://github.com/streamlit/streamlit)
 - **Pipeline (TODO):** [Perfect](https://github.com/PrefectHQ/prefect)
 
@@ -21,8 +21,7 @@
 
 1. Clone the repository:
     ```sh
-    git clone /home/yamo/code/bagman
-    cd bagman
+    git clone https://github.com/yannikmotzet/bagman.git && cd bagman
     ```
 
 2. Build the Docker image:
@@ -30,7 +29,7 @@
     docker build -t bagman .
     ```
 
-3. Set the recording path:
+3. Set environment variables for docker-compose:
     ```sh
     echo "RECORDING_PATH=$(yq '.recording_path' config.yaml)" > .env
     echo "DASHBOARD_PORT=$(yq '.dashboard_port' config.yaml)" >> .env
