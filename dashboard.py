@@ -7,6 +7,14 @@ import streamlit as st
 import tinydb
 
 from utils import bagman_utils
+import subprocess
+
+def get_git_version():
+    try:
+        version = subprocess.check_output(["git", "describe", "--tags", "--always"], stderr=subprocess.DEVNULL)
+        return version.decode("utf-8").strip()
+    except subprocess.CalledProcessError:
+        return ""
 
 
 @st.cache_data
@@ -292,8 +300,13 @@ def main():
         page_title="bagman",
         page_icon="🛍️",
         layout="wide",
-        # initial_sidebar_state="collapsed",
         initial_sidebar_state="expanded",
+        menu_items={
+            "About": (
+                f"### bagman\n"
+                f"version: {get_git_version()}  \n"
+                f"check out bagman on [Git Hub](https://github.com/yannikmotzet/bagman)")
+        }
     )
     st.title("🛍️ bagman")
     pg.run()

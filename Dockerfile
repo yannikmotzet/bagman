@@ -23,4 +23,4 @@ EXPOSE 8501
 RUN echo "DASHBOARD_PORT is set to: ${DASHBOARD_PORT}"
 
 # Command to run the Streamlit application within the virtual environment
-CMD ["/bin/bash", "-c", ". venv/bin/activate && streamlit run dashboard.py --server.port=${DASHBOARD_PORT} --server.address=0.0.0.0 --browser.gatherUsageStats false"]
+CMD ["/bin/bash", "-c", ". venv/bin/activate && streamlit run dashboard.py --server.port=${DASHBOARD_PORT} --server.address=0.0.0.0"]
