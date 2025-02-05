@@ -2,12 +2,10 @@ import os
 import shutil
 
 import yaml
-from tinydb import Query, TinyDB
 from tqdm import tqdm
 
 from utils import mcap_utils
-
-# TODO outsource TiniDB code for more modularity
+from utils import db_utils
 
 
 def load_config(file_path="config.yaml"):
@@ -83,19 +81,6 @@ def load_metadata_file(recording_path, file_name="rec_metadata.yaml"):
         return None
 
 
-def db_load(database):
-    """
-    Load all records from the specified TinyDB database.
-    Args:
-        database (str): The path to the TinyDB database file.
-    Returns:
-        list: A list of all records in the database.
-    """
-
-    db = TinyDB(database)
-    return db.all()
-
-
 def db_ingest_recording(
     recording_path,
     database,
@@ -107,7 +92,7 @@ def db_ingest_recording(
     Ingests a recording into the specified database and optionally stores the recording metadata file.
     Args:
         recording_path (str): The path to the recording file.
-        database (str): The path to the TinyDB database file.
+        database (BagmanDB): An instance of the BagmanDB class.
         override (bool, optional): If True, existing records with the same path will be updated. Defaults to False.
         sort_by (str, optional): The field by which to sort the database records. Defaults to "start_time".
         store_metadata_file (bool, optional): If True, the recording metadata will be stored in a YAML file at the recording path. Defaults to True.
@@ -130,26 +115,23 @@ def db_ingest_recording(
                 yaml.dump(rec_info, file)
         except Exception as e:
             pass
-
-    db = TinyDB(database)
-    Recordings = Query()
-
+   
     # TODO sort by start_time
     if override:
-        db.upsert(rec_info, Recordings.path == recording_path)
+        database.upsert_record(rec_info, "path", recording_path)
     else:
-        if not db.contains(Recordings.path == recording_path):
-            db.insert(rec_info)
+        if not database.contains_record("path", recording_path):
+            database.insert_record(rec_info)
 
     if sort_by:
         # Sort the database by start_time, newest on top
-        all_records = db.all()
+        all_records = database.get_all_records()
         sorted_records = sorted(
             all_records, key=lambda x: x.get(sort_by, ""), reverse=True
         )
 
-        db.truncate()  # Clear the database
-        db.insert_multiple(sorted_records)  # Insert sorted records
+        database.truncate_database()  # Clear the database
+        database.insert_multiple_records(sorted_records)  # Insert sorted records
 
 
 def db_get_recording_info(recording_name, database):
@@ -157,42 +139,11 @@ def db_get_recording_info(recording_name, database):
     Retrieve recording information from the database.
     Args:
         recording_name (str): The name to the recording file.
-        database (str): The path to the TinyDB database file.
+        database (BagmanDB): An instance of the BagmanDB class.
     Returns:
         dict: A dictionary containing the recording information if found, otherwise None.
     """
 
-    db = TinyDB(database)
-    Recordings = Query()
-    return db.get(Recordings.name == recording_name)
+    db = db_utils.BagmanDB(database)
+    return db.get_record("name", recording_name)
 
-
-def db_exists_recording(recording_name, database):
-    """
-    Check if a recording exists in the database.
-    Args:
-        recording_name (str): The name of the recording to check.
-        database (str): The path to the TinyDB database file.
-    Returns:
-        bool: True if the recording exists in the database, False otherwise.
-    """
-
-    db = TinyDB(database)
-    Recordings = Query()
-    return db.contains(Recordings.name == recording_name)
-
-
-def db_delete_recording(recording_name, database):
-    """
-    Deletes a recording from the database.
-    Args:
-        recording_name (str): The name of the recording to delete.
-        database (str): The path to the database file.
-    Returns:
-        None
-    """
-
-    db = TinyDB(database)
-    Recordings = Query()
-
-    db.remove(Recordings.name == recording_name)

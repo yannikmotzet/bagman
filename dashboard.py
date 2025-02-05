@@ -1,13 +1,13 @@
 import os
-import sqlite3
+import subprocess
 
 import numpy as np
 import pandas as pd
 import streamlit as st
-import tinydb
 
 from utils import bagman_utils
-import subprocess
+from utils import db_utils
+
 
 def get_git_version():
     try:
@@ -18,23 +18,10 @@ def get_git_version():
 
 
 @st.cache_data
-def load_df_sqlite3(database, table):
-    conn = sqlite3.connect(database)
-    cursor = conn.execute(f"PRAGMA table_info('{table}')")
-    columns = [info[1] for info in cursor.fetchall()]
-    query = f"SELECT * FROM '{table}'"
-    data = pd.read_sql_query(query, conn)
-    if "timestamp" in columns:
-        data["timestamp"] = pd.to_datetime(data["timestamp"], unit="s", errors="coerce")
-    conn.close()
-    return data
-
-
-@st.cache_data
-def load_df_tinydb(database):
-    db = tinydb.TinyDB(database)
-    records = db.all()
-    df = pd.DataFrame(records)
+def load_data(_database):
+    # db = db_utils.BagmanDB(config["database_path"])
+    data = _database.get_all_records()
+    df = pd.DataFrame(data, index=None)
     df = df.drop(columns=config["dash_cols_ignore"], errors="ignore")
     for col in ["start_time", "end_time"]:
         if col in df.columns:
@@ -45,19 +32,17 @@ def load_df_tinydb(database):
     return df
 
 
-def select_recording(selected_recording):
-    db = tinydb.TinyDB(config["database_path"])
-    query = tinydb.Query()
-    result = db.search(query.name == selected_recording)
+def select_recording(selected_recording, database):
+    result = database.get_record("name", str(selected_recording))
 
-    if result and "files" in result[0]:
+    if result and "files" in result:
         tab_map, tab_video, tab_topics, tab_files, tab_download = st.tabs(
             ["Map", "Video", "Topics", "Files", "Download"]
         )
 
         with tab_map:
-            if "coordinates" in result[0]:
-                df = pd.DataFrame(result[0]["coordinates"], columns=["lat", "lon"])
+            if "coordinates" in result:
+                df = pd.DataFrame(result["coordinates"], columns=["lat", "lon"])
                 st.map(df)
             else:
                 st.info("No coordinates available")
@@ -66,15 +51,15 @@ def select_recording(selected_recording):
             st.write("Video not implemented yet")
 
         with tab_topics:
-            if "topics" in result[0]:
-                topics_df = pd.DataFrame(result[0]["topics"])
+            if "topics" in result:
+                topics_df = pd.DataFrame(result["topics"])
                 st.dataframe(
                     topics_df, hide_index=True, use_container_width=True, height=600
                 )
 
         with tab_files:
-            if "files" in result[0]:
-                files_df = pd.DataFrame(result[0]["files"])
+            if "files" in result:
+                files_df = pd.DataFrame(result["files"])
                 st.dataframe(
                     files_df, hide_index=True, use_container_width=True, height=250
                 )
@@ -82,8 +67,8 @@ def select_recording(selected_recording):
         with tab_download:
             st.download_button(
                 "Download",
-                f"/home/yamo/recordings/{result[0]['path']}",
-                f"{result[0]['name']}.mcap",
+                f"/home/yamo/recordings/{result['path']}",
+                f"{result['name']}.mcap",
                 key="download",
             )
 
@@ -173,14 +158,15 @@ def filter_recording(data, container):
 
 def st_page_recordings():
     st.header("Recordings")
-    if not os.path.exists(config["database_path"]):
-        st.error("Database not found")
-        return
+    
     try:
-        data = load_df_tinydb(config["database_path"])
+        db = db_utils.BagmanDB(config["database_path"])
+        data = load_data(db)
+    except FileNotFoundError:
+        st.error("Database not found")
     except Exception as e:
-        st.error(f"Error loading database: {e}")
-        return
+        st.error(f"Error reading database: {e}")
+
     num_total_data = len(data)
     columns = data.columns.tolist()
 
@@ -245,6 +231,7 @@ def st_page_recordings():
             )
 
     # display the dataframe
+    # TODO fix path link
     event = st.dataframe(
         data,
         column_config={
@@ -264,7 +251,8 @@ def st_page_recordings():
 
     selected_rows = event.selection.rows
     if len(selected_rows) > 0:
-        select_recording(data.iloc[selected_rows[0]]["name"])
+        recording_name = data.iloc[selected_rows[0]]["name"]
+        select_recording(recording_name, db)
 
 
 def st_page_jobs():
