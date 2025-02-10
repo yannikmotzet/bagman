@@ -2,7 +2,7 @@
 
 **Bagman** is a ROS 2 **bag** (.mcap) **man**agement tool.
 
-![Bagman Screenshot](resources/bagman_screenshot.jpg)
+![Bagman Screenshot](resources/bagman_screenshot.png)
 
 ## Features
 
