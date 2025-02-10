@@ -5,24 +5,36 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from utils import bagman_utils
-from utils import db_utils
+from utils import bagman_utils, db_utils
 
 
 def get_git_version():
     try:
-        version = subprocess.check_output(["git", "describe", "--tags", "--always"], stderr=subprocess.DEVNULL)
+        version = subprocess.check_output(
+            ["git", "describe", "--tags", "--always"], stderr=subprocess.DEVNULL
+        )
         return version.decode("utf-8").strip()
     except subprocess.CalledProcessError:
         return ""
 
 
 @st.cache_data
-def load_data(_database):
-    # db = db_utils.BagmanDB(config["database_path"])
+def load_data(_database, check_integrity=True):
     data = _database.get_all_records()
     df = pd.DataFrame(data, index=None)
+    columns = df.columns.tolist()
+    
+    if check_integrity:
+        # check database for integrity
+        if not set(config["db_columns"]).issubset(set(columns)):
+            st.error("database is corrupt")
+            missing_columns = set(config["db_columns"]) - set(columns)
+            st.markdown("**Following columns are missing in the database:**")
+            st.markdown(", ".join(f"`{col}`" for col in missing_columns))
+
     df = df.drop(columns=config["dash_cols_ignore"], errors="ignore")
+    df = df.iloc[::-1] # data is already sorted, oldest on top
+    # df = df.sort_values(by="start_time", ascending=False)
     for col in ["start_time", "end_time"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], unit="s", errors="coerce")
@@ -65,9 +77,10 @@ def select_recording(selected_recording, database):
                 )
 
         with tab_download:
+            # TODO download recording
             st.download_button(
                 "Download",
-                f"/home/yamo/recordings/{result['path']}",
+                f"{result['path']}",
                 f"{result['name']}.mcap",
                 key="download",
             )
@@ -158,14 +171,16 @@ def filter_recording(data, container):
 
 def st_page_recordings():
     st.header("Recordings")
-    
+
     try:
         db = db_utils.BagmanDB(config["database_path"])
         data = load_data(db)
     except FileNotFoundError:
         st.error("Database not found")
+        return
     except Exception as e:
         st.error(f"Error reading database: {e}")
+        return
 
     num_total_data = len(data)
     columns = data.columns.tolist()
@@ -293,8 +308,9 @@ def main():
             "About": (
                 f"### bagman\n"
                 f"version: {get_git_version()}  \n"
-                f"check out bagman on [Git Hub](https://github.com/yannikmotzet/bagman)")
-        }
+                f"check out bagman on [Git Hub](https://github.com/yannikmotzet/bagman)"
+            )
+        },
     )
     st.title("🛍️ bagman")
     pg.run()
