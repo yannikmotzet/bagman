@@ -31,7 +31,7 @@
 
 3. Set environment variables for docker-compose:
     ```sh
-    echo "RECORDING_PATH=$(yq '.recording_path' config.yaml)" > .env
+    echo "RECORDINGS_STORAGE=$(yq '.recordings_storage' config.yaml)" > .env
     echo "DASHBOARD_PORT=$(yq '.dashboard_port' config.yaml)" >> .env
     ```
 

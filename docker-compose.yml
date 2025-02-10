@@ -6,6 +6,6 @@ services:
     ports:
       - "${DASHBOARD_PORT}:${DASHBOARD_PORT}"
     volumes:
-      - ${RECORDINGS_PATH}:${RECORDINGS_PATH}
+      - ${RECORDINGS_STORAGE}:${RECORDINGS_STORAGE}
     environment:
       - DASHBOARD_PORT=${DASHBOARD_PORT}
