@@ -1,0 +1,154 @@
+{
+    "_default": {
+      "1": {
+        "name": "valkyrie_2025_01_15-11_33_00",
+        "path": "/data/recordings/valkyrie_2025_01_15-11_33_00",
+        "start_time": 1736937210,
+        "end_time": 1736937310.4444342,
+        "duration": 100.44443416595459,
+        "size": 100453231,
+        "files": [
+          {
+            "path": "valkyrie_2025_01_15-11_33_00_0.mcap",
+            "start_time": 1736937210,
+            "end_time": 1736937310.4444342,
+            "duration": 100.44443416595459,
+            "md5sum": "b5e02c8f3153fc83f41e127af3456a09",
+            "size": 100453231
+          }
+        ],
+        "topics": [
+          {
+            "name": "/sensor_lidar_front/pointcloud",
+            "type": "sensor_msgs/msg/PointCloud2",
+            "count": 750,
+            "start_time": 1736937210,
+            "end_time": 1736937310.4444342,
+            "frequency": 7.5,
+            "duration": 100
+          }
+        ],
+        "description": "test recording with Valkyrie",
+        "vehicle": "valkyrie",
+        "operator": "Mallory",
+        "location": "test track"
+      },
+      "2": {
+        "name": "prometheus_2025_02_01-14_10_30",
+        "path": "/data/recordings/prometheus_2025_02_01-14_10_30",
+        "start_time": 1738419030,
+        "end_time": 1738419125.87543,
+        "duration": 95.87543,
+        "size": 85432100,
+        "files": [
+          {
+            "path": "prometheus_2025_02_01-14_10_30_0.mcap",
+            "start_time": 1738419030,
+            "end_time": 1738419125.87543,
+            "duration": 95.87543,
+            "md5sum": "3a9f91c3e78a6f2b5c4d125678901234",
+            "size": 85432100
+          }
+        ],
+        "topics": [
+          {
+            "name": "/camera_left/image_raw",
+            "type": "sensor_msgs/msg/Image",
+            "count": 320,
+            "start_time": 1738419030,
+            "end_time": 1738419125.87543,
+            "frequency": 3.34,
+            "duration": 95
+          },
+          {
+            "name": "/camera_right/image_raw",
+            "type": "sensor_msgs/msg/Image",
+            "count": 320,
+            "start_time": 1738419030,
+            "end_time": 1738419125.87543,
+            "frequency": 3.34,
+            "duration": 95
+          }
+        ],
+        "description": "Prometheus test at high speed",
+        "vehicle": "prometheus",
+        "operator": "Jack",
+        "location": "desert proving ground"
+      },
+      "3": {
+        "name": "hera_2025_01_28-09_45_12",
+        "path": "/data/recordings/hera_2025_01_28-09_45_12",
+        "start_time": 1738044312,
+        "end_time": 1738044420.5,
+        "duration": 108.5,
+        "size": 92005400,
+        "files": [
+          {
+            "path": "hera_2025_01_28-09_45_12_0.mcap",
+            "start_time": 1738044312,
+            "end_time": 1738044420.5,
+            "duration": 108.5,
+            "md5sum": "f4321a98b7c5d2e1f0a3b21c67890123",
+            "size": 92005400
+          }
+        ],
+        "topics": [
+          {
+            "name": "/sensor_radar_front/pointcloud",
+            "type": "sensor_msgs/msg/PointCloud2",
+            "count": 540,
+            "start_time": 1738044312,
+            "end_time": 1738044420.5,
+            "frequency": 5,
+            "duration": 108
+          },
+          {
+            "name": "/gps/hera/fix",
+            "type": "sensor_msgs/msg/NavSatFix",
+            "count": 10800,
+            "start_time": 1738044312,
+            "end_time": 1738044420.5,
+            "frequency": 100,
+            "duration": 108
+          }
+        ],
+        "description": "Hera radar test",
+        "vehicle": "hera",
+        "operator": "Eve",
+        "location": "coastal range"
+      },
+      "4": {
+        "name": "athena_2025_02_05-16_20_45",
+        "path": "/data/recordings/athena_2025_02_05-16_20_45",
+        "start_time": 1738742445,
+        "end_time": 1738742600,
+        "duration": 155,
+        "size": 132145600,
+        "files": [
+          {
+            "path": "athena_2025_02_05-16_20_45_0.mcap",
+            "start_time": 1738742445,
+            "end_time": 1738742600,
+            "duration": 155,
+            "md5sum": "d7e02b8a3c2f1e4a6f1d235678901234",
+            "size": 132145600
+          }
+        ],
+        "topics": [
+          {
+            "name": "/camera_front/image_raw",
+            "type": "sensor_msgs/msg/Image",
+            "count": 465,
+            "start_time": 1738742445,
+            "end_time": 1738742600,
+            "frequency": 3,
+            "duration": 155
+          }
+        ],
+        "description": "Athena night drive test",
+        "vehicle": "athena",
+        "operator": "Sophia",
+        "location": "urban test track"
+      }
+    }
+  }

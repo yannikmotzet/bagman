@@ -1,6 +1,9 @@
 # common filters
-recording_path: /data/recordings
-database_path: /data/recordings/recordings/.database/recordings.json
+recordings_storage: /data/recordings
+database_path: resources/recordings_example.json # must be inside recordings_storage e.g. recordings_storage/.database/recordings.json
+
+# database setting
+db_columns: ['name', 'path', 'start_time', 'end_time', 'duration', 'size', 'files', 'topics']
 
 # dashboard settings
 dashboard_port: 8051
