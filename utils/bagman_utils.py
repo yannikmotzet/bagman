@@ -4,8 +4,7 @@ import shutil
 import yaml
 from tqdm import tqdm
 
-from utils import mcap_utils
-from utils import db_utils
+from utils import db_utils, mcap_utils
 
 
 def load_config(file_path="config.yaml"):
@@ -79,9 +78,13 @@ def load_metadata_file(recording_path, file_name="rec_metadata.yaml"):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return None
+    
+def check_db_integrity(database, columns):
+    # TODO
+    pass
 
 
-def db_ingest_recording(
+def db_add_recording(
     recording_path,
     database,
     override=False,
@@ -89,7 +92,7 @@ def db_ingest_recording(
     store_metadata_file=True,
 ):
     """
-    Ingests a recording into the specified database and optionally stores the recording metadata file.
+    Adds a recording into the specified database and optionally stores the recording metadata file.
     Args:
         recording_path (str): The path to the recording file.
         database (BagmanDB): An instance of the BagmanDB class.
@@ -115,7 +118,7 @@ def db_ingest_recording(
                 yaml.dump(rec_info, file)
         except Exception as e:
             pass
-   
+
     # TODO sort by start_time
     if override:
         database.upsert_record(rec_info, "path", recording_path)
@@ -123,27 +126,11 @@ def db_ingest_recording(
         if not database.contains_record("path", recording_path):
             database.insert_record(rec_info)
 
-    if sort_by:
-        # Sort the database by start_time, newest on top
-        all_records = database.get_all_records()
-        sorted_records = sorted(
-            all_records, key=lambda x: x.get(sort_by, ""), reverse=True
-        )
+    # Sort the database(default sort by start_time, oldest on top)
+    all_records = database.get_all_records()
+    sorted_records = sorted(
+        all_records, key=lambda x: x.get(sort_by, ""), reverse=False
+    )
 
-        database.truncate_database()  # Clear the database
-        database.insert_multiple_records(sorted_records)  # Insert sorted records
-
-
-def db_get_recording_info(recording_name, database):
-    """
-    Retrieve recording information from the database.
-    Args:
-        recording_name (str): The name to the recording file.
-        database (BagmanDB): An instance of the BagmanDB class.
-    Returns:
-        dict: A dictionary containing the recording information if found, otherwise None.
-    """
-
-    db = db_utils.BagmanDB(database)
-    return db.get_record("name", recording_name)
-
+    database.truncate_database()  # Clear the database
+    database.insert_multiple_records(sorted_records)  # Insert sorted records
