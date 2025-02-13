@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  bagman:
+    image: bagman
+    ports:
+      - "${DASHBOARD_PORT}:${DASHBOARD_PORT}"
+    volumes:
+      - ${RECORDINGS_STORAGE}:${RECORDINGS_STORAGE}
+    environment:
+      - DASHBOARD_PORT=${DASHBOARD_PORT}

@@ -6,3 +6,6 @@ mcap-ros2-support
 streamlit
 pyaml
 tinydb
+click
+tqmd
+pre-commit
