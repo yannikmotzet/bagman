@@ -1,9 +1,19 @@
 import os
+import sys
 import subprocess
 
 import numpy as np
 import pandas as pd
 import streamlit as st
+from datetime import timedelta
+import glob
+import io
+import zipfile
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.yaml")
+
+sys.path.append(PROJECT_ROOT)
 
 from utils import bagman_utils, db_utils
 
@@ -33,8 +43,8 @@ def load_data(_database, check_integrity=True):
             st.markdown(", ".join(f"`{col}`" for col in missing_columns))
 
     df = df.drop(columns=config["dash_cols_ignore"], errors="ignore")
-    df = df.iloc[::-1] # data is already sorted, oldest on top
-    # df = df.sort_values(by="start_time", ascending=False)
+    # df = df.iloc[::-1] # data is already sorted, oldest on top
+    df = df.sort_values(by="start_time", ascending=False)
     for col in ["start_time", "end_time"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], unit="s", errors="coerce")
@@ -77,14 +87,34 @@ def select_recording(selected_recording, database):
                 )
 
         with tab_download:
-            # TODO download recording
-            st.download_button(
-                "Download",
-                f"{result['path']}",
-                f"{result['name']}.mcap",
-                key="download",
-            )
 
+            if not os.path.exists(result["path"]):
+                st.error("recording not found in storage")
+                return
+            
+            # TODO add option to select by topic/message -> filter and create new .mcap
+
+            files = glob.glob(os.path.join(result["path"], "**", "*"), recursive=True)
+            selected_files = []
+            for file in files:
+                if st.checkbox(os.path.relpath(file, result["path"]), key=file, value=True):
+                    selected_files.append(file)
+
+            if selected_files:
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w") as zipf:
+                    for file in selected_files:
+                        zipf.write(file, os.path.relpath(file, result["path"]))
+
+                zip_buffer.seek(0)
+                st.download_button(
+                    label="Download selected files as ZIP",
+                    data=zip_buffer,
+                    file_name=f"{result['name']}_selected.zip",
+                    mime="application/zip"
+                )
+            else:
+                st.info("No files selected for download")
 
 def filter_recording(data, container):
     # for each column create a filter for the specific data type
@@ -116,20 +146,33 @@ def filter_recording(data, container):
 
         # timedelta
         if np.issubdtype(data[column].dtype, np.timedelta64):
-            min_duration = int(np.floor(data[column].min() / np.timedelta64(1, "m")))
-            max_duration = int(np.ceil(data[column].max() / np.timedelta64(1, "m")))
+            min_duration = pd.to_datetime(data[column].min().total_seconds(), unit='s').time()
+            max_duration = pd.to_datetime(data[column].max().total_seconds(), unit='s').time()
+
+            min_duration_td = pd.to_timedelta(min_duration.strftime("%H:%M:%S"))
+            max_duration_td = pd.to_timedelta(max_duration.strftime("%H:%M:%S"))
+            duration_span = (max_duration_td - min_duration_td).total_seconds()
+            step = timedelta(seconds=15)
+            if duration_span > 3600:  # more than 1 hour
+                step = timedelta(minutes=1)
+            elif duration_span > 21600:  # more than 6 hours
+                step = timedelta(minutes=10)
+            elif duration_span > 86400:  # more than 1 day
+                step = timedelta(hours=1)
 
             filter_duration = container.slider(
-                f"Filter {column} [min]",
-                min_duration,
-                max_duration,
-                (min_duration, max_duration),
+                label=f"Filter {column}",
+                min_value=min_duration,
+                max_value=max_duration,
+                value=(min_duration, max_duration),
                 key=f"{column}",
+                step=step,
+                format="HH:mm:ss"
             )
             if len(filter_duration) == 2:
                 data = data[
-                    (data[column] >= np.timedelta64(filter_duration[0], "m"))
-                    & (data[column] <= np.timedelta64(filter_duration[1], "m"))
+                    (data[column] >= pd.to_timedelta(filter_duration[0].strftime("%H:%M:%S")))
+                    & (data[column] <= pd.to_timedelta(filter_duration[1].strftime("%H:%M:%S")))
                 ]
             continue
 
@@ -173,7 +216,10 @@ def st_page_recordings():
     st.header("Recordings")
 
     try:
-        db = db_utils.BagmanDB(config["database_path"])
+        database_path = config["database_path"]
+        if not os.path.isabs(database_path):
+            database_path = os.path.join(PROJECT_ROOT, database_path)
+        db = db_utils.BagmanDB(database_path)
         data = load_data(db)
     except FileNotFoundError:
         st.error("Database not found")
@@ -286,7 +332,7 @@ def st_page_upload():
 def main():
     global config
     try:
-        config = bagman_utils.load_config()
+        config = bagman_utils.load_config(CONFIG_PATH)
     except Exception as e:
         st.error(f"Error loading config: {e}")
         return
