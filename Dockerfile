@@ -14,6 +14,11 @@ RUN virtualenv venv
 COPY requirements.txt .
 RUN . venv/bin/activate && pip install --no-cache-dir -r requirements.txt
 
+# Install other system dependencies
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y git
+
 # Copy the rest of the application code into the container
 COPY . .
 

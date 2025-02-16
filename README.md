@@ -13,9 +13,9 @@
 
 ## Prerequisites
 
-- Docker
-- Docker Compose
-- yq
+- Docker (`apt install docker.io`)
+- Docker Compose (`apt install docker-compose`)
+- yq (`snap install yq`)
 
 ## Installation
 
@@ -39,6 +39,8 @@
     ```sh
     docker-compose up -d
     ```
+5. Open Dashboard in browser: [localhost:8051](http://localhost:8051/)
+
 
 ## Contributing
 
