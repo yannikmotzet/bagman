@@ -41,6 +41,21 @@
     ```
 5. Open Dashboard in browser: [localhost:8051](http://localhost:8051/)
 
+## How to use
+
+- **CLI**
+```
+    bagman CLI
+
+    positional arguments:
+      {upload,add,delete,remove,exist}
+        upload              upload a recording to storage (optional: add to database)
+        add                 add a recording to database
+        delete              delete a recording from storage (optional: remove from database)
+        remove              remove a recording from database
+        exist               check if recording exists in storage and database
+```
+
 
 ## Contributing
 
