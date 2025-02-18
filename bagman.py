@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import os
 
@@ -65,8 +66,8 @@ def add_recording(db, recording_path):
             return
 
     bagman_utils.db_add_recording(
-        recording_path,
         db,
+        recording_path,
         override=True,
         store_metadata_file=True,
     )

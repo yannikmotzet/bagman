@@ -84,9 +84,10 @@ def check_db_integrity(database, columns):
     pass
 
 
-def db_add_recording(
-    recording_path,
+def add_recording(
     database,
+    recording_path,
+    metadata_file_name="rec_metadata.yaml",
     override=False,
     sort_by="start_time",
     store_metadata_file=True,
@@ -106,31 +107,31 @@ def db_add_recording(
     """
 
     rec_info = mcap_utils.get_rec_info(recording_path)
-    rec_metadata = load_metadata_file(recording_path)
 
+    # update existing metadata file
+    rec_metadata = load_metadata_file(recording_path, metadata_file_name)
     if rec_metadata:
         rec_info.update(rec_metadata)
 
     if store_metadata_file:
         # TODO backup old file
         try:
-            with open(os.path.join(recording_path, "rec_metadata.yaml"), "w") as file:
+            with open(os.path.join(recording_path, metadata_file_name), "w") as file:
                 yaml.dump(rec_info, file)
         except Exception as e:
             pass
 
-    # TODO sort by start_time
     if override:
         database.upsert_record(rec_info, "path", recording_path)
     else:
-        if not database.contains_record("path", recording_path):
-            database.insert_record(rec_info)
+        if database.contains_record("path", recording_path):
+            return
+        database.insert_record(rec_info)
 
-    # Sort the database(default sort by start_time, oldest on top)
+    # Sort the database (default sort by start_time, oldest on top)
     all_records = database.get_all_records()
     sorted_records = sorted(
         all_records, key=lambda x: x.get(sort_by, ""), reverse=False
     )
-
     database.truncate_database()  # Clear the database
     database.insert_multiple_records(sorted_records)  # Insert sorted records
