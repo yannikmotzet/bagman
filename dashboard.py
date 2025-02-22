@@ -1,16 +1,17 @@
+import glob
+import io
 import os
-import sys
 import subprocess
+import sys
+import time
+import zipfile
+from datetime import timedelta
 
 import numpy as np
 import pandas as pd
 import streamlit as st
-from datetime import timedelta
-import glob
-import io
-import zipfile
+import streamlit.components.v1 as components
 import yaml
-import time
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.yaml")
@@ -35,7 +36,7 @@ def load_data(_database, check_integrity=True):
     data = _database.get_all_records()
     df = pd.DataFrame(data, index=None)
     columns = df.columns.tolist()
-    
+
     if check_integrity:
         # check database for integrity
         if not set(config["db_columns"]).issubset(set(columns)):
@@ -65,14 +66,26 @@ def select_recording(selected_recording, database):
         )
 
         with tab_map:
-            if "coordinates" in result:
-                df = pd.DataFrame(result["coordinates"], columns=["lat", "lon"])
-                st.map(df)
+            html_file = os.path.join(
+                result["path"],
+                config["resources_folder"],
+                f"{selected_recording}_map.html",
+            )
+            if os.path.exists(html_file):
+                html_content = open(html_file, "r").read()
+                components.html(html_content, height=600)
             else:
-                st.info("No coordinates available")
+                st.info("map not available")
 
         with tab_video:
-            st.write("Video not implemented yet")
+            video_files = glob.glob(
+                os.path.join(result["path"], config["resources_folder"], "*.mp4"),
+                recursive=False,
+            )
+            if video_files:
+                for video_file in video_files:
+                    st.text(os.path.basename(video_file))
+                    st.video(video_file)
 
         with tab_topics:
             if "topics" in result:
@@ -89,17 +102,18 @@ def select_recording(selected_recording, database):
                 )
 
         with tab_download:
-
             if not os.path.exists(result["path"]):
                 st.error("recording not found in storage")
                 return
-            
+
             # TODO add option to select by topic/message -> filter and create new .mcap
 
             files = glob.glob(os.path.join(result["path"], "**", "*"), recursive=True)
             selected_files = []
             for file in files:
-                if st.checkbox(os.path.relpath(file, result["path"]), key=file, value=True):
+                if st.checkbox(
+                    os.path.relpath(file, result["path"]), key=file, value=True
+                ):
                     selected_files.append(file)
 
             if selected_files:
@@ -113,10 +127,11 @@ def select_recording(selected_recording, database):
                     label="Download selected files as ZIP",
                     data=zip_buffer,
                     file_name=f"{result['name']}_selected.zip",
-                    mime="application/zip"
+                    mime="application/zip",
                 )
             else:
                 st.info("No files selected for download")
+
 
 def filter_recording(data, container):
     # for each column create a filter for the specific data type
@@ -148,8 +163,12 @@ def filter_recording(data, container):
 
         # timedelta
         if np.issubdtype(data[column].dtype, np.timedelta64):
-            min_duration = pd.to_datetime(data[column].min().total_seconds(), unit='s').time()
-            max_duration = pd.to_datetime(data[column].max().total_seconds(), unit='s').time()
+            min_duration = pd.to_datetime(
+                data[column].min().total_seconds(), unit="s"
+            ).time()
+            max_duration = pd.to_datetime(
+                data[column].max().total_seconds(), unit="s"
+            ).time()
 
             min_duration_td = pd.to_timedelta(min_duration.strftime("%H:%M:%S"))
             max_duration_td = pd.to_timedelta(max_duration.strftime("%H:%M:%S"))
@@ -169,12 +188,18 @@ def filter_recording(data, container):
                 value=(min_duration, max_duration),
                 key=f"{column}",
                 step=step,
-                format="HH:mm:ss"
+                format="HH:mm:ss",
             )
             if len(filter_duration) == 2:
                 data = data[
-                    (data[column] >= pd.to_timedelta(filter_duration[0].strftime("%H:%M:%S")))
-                    & (data[column] <= pd.to_timedelta(filter_duration[1].strftime("%H:%M:%S")))
+                    (
+                        data[column]
+                        >= pd.to_timedelta(filter_duration[0].strftime("%H:%M:%S"))
+                    )
+                    & (
+                        data[column]
+                        <= pd.to_timedelta(filter_duration[1].strftime("%H:%M:%S"))
+                    )
                 ]
             continue
 
@@ -320,17 +345,21 @@ def st_page_recordings():
 
 def st_page_jobs():
     st.header("Jobs")
-    st.write("This section is not yet implemented. In future you can select pipelines and apply them to your recordings.")
+    st.write(
+        "This section is not yet implemented. In future you can select pipelines and apply them to your recordings."
+    )
 
 
 def st_page_upload():
     st.header("Upload")
     uploaded_recording = st.file_uploader(
-        "Upload a recording", type=config["dash_upload_files"], accept_multiple_files=True
+        "Upload a recording",
+        type=config["dash_upload_files"],
+        accept_multiple_files=True,
     )
     if uploaded_recording is None or len(uploaded_recording) == 0:
         return
-    
+
     # TODO add a cancel button which resets uploaded_recording
 
     mcap_files = []
@@ -381,7 +410,7 @@ def st_page_upload():
     if os.path.exists(recording_path):
         st.warning("⚠️ recording already exists in storage")
         button_label = "Overwrite"
-       
+
     db = db_utils.BagmanDB(config["database_path"])
     db_exists_recording = db.contains_record("name", recording_name)
     del db
@@ -407,13 +436,15 @@ def st_page_upload():
             # check if all files were uploaded correctly
             for file in mcap_files + other_files:
                 uploaded_file_size = len(file.getvalue())
-                stored_file_size = os.path.getsize(os.path.join(recording_path, file.name))
+                stored_file_size = os.path.getsize(
+                    os.path.join(recording_path, file.name)
+                )
                 if uploaded_file_size != stored_file_size:
                     st.error(f"File size mismatch for {file.name}")
                     return
-            
-            st.toast("upload successful!", icon='🎉')
-            st.success("upload successful")
+
+            st.toast("upload successful!", icon="✅")
+            st.success("✅ upload successful")
 
         # trigger add to database
         db = db_utils.BagmanDB(config["database_path"])
@@ -451,6 +482,7 @@ def main():
         },
     )
     st.title("🛍️ bagman")
+    st.logo("resources/bagman_logo.png", size="large")
     pg.run()
 
 

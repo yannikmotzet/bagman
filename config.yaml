@@ -1,6 +1,7 @@
-# common filters
+# common settings
 recordings_storage: /data/recordings
 database_path: resources/recordings_example.json # must be inside recordings_storage e.g. recordings_storage/.database/recordings.json
+resources_folder: resources # folder with resources like map.html, video, etc. relative to recordings_storage
 
 # database settings
 db_columns: ['name', 'path', 'start_time', 'end_time', 'duration', 'description', 'operator', 'vehicle', 'location', 'size', 'files', 'topics'] # columns which are mandatory in database
