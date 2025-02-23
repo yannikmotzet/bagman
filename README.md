@@ -1,13 +1,25 @@
 # Bagman
+<img src="resources/bagman_logo.png" alt="Bagman logo" width="100"/>
 
 **Bagman** is a ROS 2 **bag** (.mcap) **man**agement tool.
 
 ![Bagman Screenshot](resources/bagman_screenshot.png)
 
+<details>
+    <summary>Table of Contents</summary>
+
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [How to use](#how-to-use)
+- [Contributing](#contributing)
+
+</details>
+
 ## Features
 
 - **CLI**
-- **Database:** [TinyDB](https://github.com/msiemens/tinydb) (can easyily be replaced with custom database)
+- **Database:** [TinyDB](https://github.com/msiemens/tinydb)
 - **Dashboard:** [Streamlit](https://github.com/streamlit/streamlit)
 - **Pipeline (TODO):** [Perfect](https://github.com/PrefectHQ/prefect)
 
