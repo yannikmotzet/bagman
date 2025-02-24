@@ -12,6 +12,7 @@ metadata_file: rec_metadata.yaml
 
 # dashboard settings
 dashboard_port: 8051
+dash_title: '🛍️ bagman'
 dash_cols_mandatory: [] # colums which will always be displayed
 dash_cols_ignore: ['files', 'topics'] # these columns will be deleted from the dataframe
 dash_cols_default: ['start_time', 'name', 'duration', 'description', 'path'] # columns which are displayed by default, others can be selected
