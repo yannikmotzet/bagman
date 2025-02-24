@@ -53,12 +53,11 @@ def upload_recording(path, recordings_path, move=False, verbose=True):
         os.remove(path)
 
 
-def load_metadata_file(recording_path, file_name="rec_metadata.yaml"):
+def load_metadata_file(medatata_file):
     """
     Load recording metadata from a YAML file.
     Args:
-        recording_path (str): The directory path where the recording metadata file is located.
-        file_name (str, optional): The name of the metadata file. Defaults to "rec_metadata.yaml".
+        medatata_file (str): The path where the recording metadata file is located.
     Returns:
         dict or None: The parsed metadata as a dictionary if successful, None otherwise.
     Raises:
@@ -68,15 +67,15 @@ def load_metadata_file(recording_path, file_name="rec_metadata.yaml"):
     """
 
     try:
-        with open(os.path.join(recording_path, file_name), "r") as file:
+        with open(medatata_file, "r") as file:
             return yaml.safe_load(file)
     except FileNotFoundError:
         print(
-            f"Error: The file {file_name} was not found in the directory {recording_path}."
+            f"Error: The file {os.path.basename(medatata_file)} was not found in the directory {os.path.dirname(medatata_file)}."
         )
         return None
     except yaml.YAMLError as exc:
-        print(f"Error parsing YAML file {file_name}: {exc}")
+        print(f"Error parsing YAML file {os.path.basename(medatata_file)}: {exc}")
         return None
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
@@ -113,9 +112,11 @@ def add_recording(
     rec_info = mcap_utils.get_rec_info(recording_path)
 
     # update existing metadata file
-    rec_metadata = load_metadata_file(recording_path, metadata_file_name)
-    if rec_metadata:
-        rec_info.update(rec_metadata)
+    metadata_file = os.path.join(recording_path, metadata_file_name)
+    if os.path.exists(metadata_file):
+        rec_metadata = load_metadata_file(metadata_file)
+        rec_metadata.update(rec_info)
+        rec_info = rec_metadata
 
     if store_metadata_file:
         # TODO backup old file
@@ -126,13 +127,13 @@ def add_recording(
             pass
 
     if override:
-        database.upsert_record(rec_info, "path", recording_path)
+        database.upsert_record(rec_info, "name", rec_info["name"])
     else:
-        if database.contains_record("path", recording_path):
+        if database.contains_record("name", rec_info["name"]):
             return
         database.insert_record(rec_info)
 
-    # Sort the database (default sort by start_time, oldest on top)
+    # sort the database (default sort by start_time, oldest on top)
     all_records = database.get_all_records()
     sorted_records = sorted(
         all_records, key=lambda x: x.get(sort_by, ""), reverse=False
@@ -186,7 +187,7 @@ def generate_map(recording_name, config="config.yaml", topic=None, speed=True):
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
     try:
-        metadata = load_metadata_file(recording_path, config["metadata_file"])
+        metadata = load_metadata_file(os.path.join(recording_path, config["metadata_file"]))
     except Exception as e:
         print(f"Error loading metadata file: {e}")
         return
@@ -264,7 +265,7 @@ def generate_video(
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
     try:
-        metadata = load_metadata_file(recording_path, config["metadata_file"])
+        metadata = load_metadata_file(os.path.join(recording_path, config["metadata_file"]))
     except Exception as e:
         print(f"Error loading metadata file: {e}")
         return
