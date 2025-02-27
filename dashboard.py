@@ -48,11 +48,14 @@ def load_data(_database, check_integrity=True):
     df = df.drop(columns=config["dash_cols_ignore"], errors="ignore")
     # df = df.iloc[::-1] # data is already sorted, oldest on top
     df = df.sort_values(by="start_time", ascending=False)
-    for col in ["start_time", "end_time"]:
+    
+    # convert datetime and datetime columns
+    for col in config["dash_cols_datetime"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], unit="s", errors="coerce")
-    if "duration" in df.columns:
-        df["duration"] = pd.to_timedelta(df["duration"], unit="s", errors="coerce")
+    for col in config["dash_cols_timedelta"]:
+        if col in df.columns:
+            df[col] = pd.to_timedelta(df[col], unit="s", errors="coerce")
 
     return df
 

@@ -4,7 +4,7 @@ database_path: resources/recordings_example.json # must be inside recordings_sto
 resources_folder: resources # folder with resources like map.html, video, etc. relative to recordings_storage
 
 # database settings
-db_columns: ['name', 'path', 'start_time', 'end_time', 'duration', 'description', 'operator', 'vehicle', 'location', 'size', 'files', 'topics'] # columns which are mandatory in database
+db_columns: ['name', 'path', 'start_time', 'end_time', 'duration', 'description', 'operator', 'vehicle', 'location', 'size', 'files', 'topics', 'time_added', 'time_modified'] # columns which are mandatory in database
 
 # recorder settings
 metadata_recorder: ['name', 'description', 'operator', 'vehicle', 'location'] # fields which needs to be set manually since cannot be extracted from .mcap
@@ -17,6 +17,7 @@ dash_cols_mandatory: [] # colums which will always be displayed
 dash_cols_ignore: ['files', 'topics'] # these columns will be deleted from the dataframe
 dash_cols_default: ['start_time', 'name', 'duration', 'description', 'path'] # columns which are displayed by default, others can be selected
 dash_cols_no_filter: ['name', 'path', 'description'] # columns which cannot be filtered
+dash_cols_datetime: ['start_time', 'end_time', 'time_added', 'time_modified'] # columns which are of type datetime
 dash_cols_timedelta: ['duration'] # columns which are of type timedelta
 dash_max_categories: 10 # max unique values for a column to apply categorial filter
 dash_upload_files:  # list with allowed file types for upload, leave empty for all

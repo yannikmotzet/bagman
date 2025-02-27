@@ -1,4 +1,5 @@
 import os
+import time
 import shutil
 from math import atan2, cos, radians, sin, sqrt
 
@@ -53,13 +54,13 @@ def upload_recording(path, recordings_path, move=False, verbose=True):
         os.remove(path)
 
 
-def load_metadata_file(medatata_file):
+def load_yaml_file(file):
     """
-    Load recording metadata from a YAML file.
+    Load dictionary from YAML file.
     Args:
-        medatata_file (str): The path where the recording metadata file is located.
+        file (str): The path where the yaml file is located.
     Returns:
-        dict or None: The parsed metadata as a dictionary if successful, None otherwise.
+        dict or None: The parsed data as a dictionary if successful, None otherwise.
     Raises:
         FileNotFoundError: If the specified file is not found.
         yaml.YAMLError: If there is an error parsing the YAML file.
@@ -67,19 +68,35 @@ def load_metadata_file(medatata_file):
     """
 
     try:
-        with open(medatata_file, "r") as file:
+        with open(file, "r") as file:
             return yaml.safe_load(file)
     except FileNotFoundError:
         print(
-            f"Error: The file {os.path.basename(medatata_file)} was not found in the directory {os.path.dirname(medatata_file)}."
+            f"Error: {file} not found"
         )
         return None
     except yaml.YAMLError as exc:
-        print(f"Error parsing YAML file {os.path.basename(medatata_file)}: {exc}")
+        print(f"Error parsing YAML file {os.path.basename(file)}: {exc}")
         return None
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return None
+    
+def save_yaml_file(data, file_path):
+    """
+    Save data to a YAML file.
+    Args:
+        data (dict): The data to be saved in YAML format.
+        file_path (str): The path to the file where the data should be saved.
+    Raises:
+        Exception: If there is an error while writing to the file.
+    """
+    
+    try:
+        with open(file_path, "w") as file:
+            yaml.dump(data, file)
+    except Exception as e:
+        raise Exception(f"An error occurred while saving the YAML file: {e}")
 
 
 def check_db_integrity(database, columns):
@@ -108,38 +125,44 @@ def add_recording(
     Returns:
         None
     """
+    metadata_file = os.path.join(recording_path, metadata_file_name)
 
-    rec_info = mcap_utils.get_rec_info(recording_path)
+    # generate new metadata
+    rec_metadata = mcap_utils.get_rec_info(recording_path)
 
     # update existing metadata file
-    metadata_file = os.path.join(recording_path, metadata_file_name)
     if os.path.exists(metadata_file):
-        rec_metadata = load_metadata_file(metadata_file)
-        rec_metadata.update(rec_info)
-        rec_info = rec_metadata
+        rec_metadata_old = load_yaml_file(metadata_file)
+        rec_metadata_old.update(rec_metadata)
+        rec_metadata = rec_metadata_old
 
     if store_metadata_file:
         # TODO backup old file
         try:
-            with open(os.path.join(recording_path, metadata_file_name), "w") as file:
-                yaml.dump(rec_info, file)
+            save_yaml_file(rec_metadata, metadata_file)
         except Exception as e:
-            pass
+            print(str(e))
 
-    if override:
-        database.upsert_record(rec_info, "name", rec_info["name"])
-    else:
-        if database.contains_record("name", rec_info["name"]):
+    time_added = time.time()
+    if database.contains_record("name", rec_metadata["name"]):
+        if not override:
             return
-        database.insert_record(rec_info)
+
+        existing_record = database.get_record("name", rec_metadata["name"])
+        if "time_added" in existing_record.keys():
+            time_added = existing_record["time_added"]
+
+    rec_metadata["time_added"] = time_added
+    database.upsert_record(rec_metadata, "name", rec_metadata["name"])
 
     # sort the database (default sort by start_time, oldest on top)
+    # TODO insert at correct position instead of sorting the whole database
     all_records = database.get_all_records()
     sorted_records = sorted(
         all_records, key=lambda x: x.get(sort_by, ""), reverse=False
     )
-    database.truncate_database()  # Clear the database
-    database.insert_multiple_records(sorted_records)  # Insert sorted records
+    database.truncate_database()  # clear the database
+    database.insert_multiple_records(sorted_records)  # insert sorted records
 
 
 def generate_map(recording_name, config="config.yaml", topic=None, speed=True):
@@ -187,7 +210,7 @@ def generate_map(recording_name, config="config.yaml", topic=None, speed=True):
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
     try:
-        metadata = load_metadata_file(os.path.join(recording_path, config["metadata_file"]))
+        metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
     except Exception as e:
         print(f"Error loading metadata file: {e}")
         return
@@ -265,7 +288,7 @@ def generate_video(
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
     try:
-        metadata = load_metadata_file(os.path.join(recording_path, config["metadata_file"]))
+        metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
     except Exception as e:
         print(f"Error loading metadata file: {e}")
         return

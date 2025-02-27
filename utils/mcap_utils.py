@@ -1,8 +1,7 @@
 import glob
 import hashlib
-import json
 import os
-import sys
+import time
 from collections import defaultdict
 from typing import Any, Dict
 
@@ -70,6 +69,7 @@ def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]
             - end_time (float): The latest end time among all files.
             - duration (float): The total duration from start_time to end_time.
             - size (int): The total size of all .mcap files.
+            - time_modified (float): The time the recording info was last generated.
             - files (Dict[str, Dict[str, Any]]): Information about each file, including:
                 - start_time (float): The start time of the file.
                 - end_time (float): The end time of the file.
@@ -99,6 +99,7 @@ def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]
         "duration": None,
         "path": recording_path,
         "size": 0,
+        "time_modified": time.time(),
         "files": {},
         "topics": {},
     }
