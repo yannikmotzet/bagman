@@ -4,6 +4,9 @@ FROM python:3.10-slim
 # Set the working directory in the container
 WORKDIR /app
 
+# Copy the the application code into the container
+COPY . .
+
 # Install virtualenv
 RUN pip install --no-cache-dir virtualenv
 
@@ -11,16 +14,14 @@ RUN pip install --no-cache-dir virtualenv
 RUN virtualenv venv
 
 # Activate the virtual environment and install the dependencies
-COPY requirements.txt .
-RUN . venv/bin/activate && pip install --no-cache-dir -r requirements.txt
+RUN . venv/bin/activate && pip install .
 
 # Install other system dependencies
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y git
-
-# Copy the rest of the application code into the container
-COPY . .
+    apt-get install -y git && \
+    apt-get install -y libgl1 && \
+    apt-get install -y libglib2.0-0
 
 # Expose the default port Streamlit might use (8501)
 EXPOSE 8501

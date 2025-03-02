@@ -4,16 +4,25 @@ import os
 
 import click
 
-from utils import bagman_utils, db_utils
+from bagman.utils import bagman_utils, db_utils
 
 
 def arg_parser():
     parser = argparse.ArgumentParser(description="bagman CLI")
     subparsers = parser.add_subparsers(dest="command")
 
+    # config command
+    parser.add_argument(
+        "-c", "--config", default="config.yaml", help="path to config file, default: config.yaml in current directory"
+    )
+
     # upload command
-    upload_parser = subparsers.add_parser("upload", help="upload a recording to storage (optional: add to database)")
-    upload_parser.add_argument("recording_path_local", help="path to the local recording to upload")
+    upload_parser = subparsers.add_parser(
+        "upload", help="upload a recording to storage (optional: add to database)"
+    )
+    upload_parser.add_argument(
+        "recording_path_local", help="path to the local recording to upload"
+    )
     upload_parser.add_argument(
         "-m", "--move", action="store_true", help="move instead of copy the recording"
     )
@@ -22,14 +31,13 @@ def arg_parser():
     )
 
     # add command
-    add_parser = subparsers.add_parser(
-        "add", help="add a recording to database"
-    )
+    add_parser = subparsers.add_parser("add", help="add a recording to database")
     add_parser.add_argument("recording_name", help="name of the recording")
 
     # delete command
     delete_parser = subparsers.add_parser(
-        "delete", help="delete a recording from storage (optional: remove from database)"
+        "delete",
+        help="delete a recording from storage (optional: remove from database)",
     )
     delete_parser.add_argument("recording_name", help="name of the recording")
     delete_parser.add_argument(
@@ -52,10 +60,12 @@ def arg_parser():
 
 def add_recording(db, recording_path):
     if not os.path.exists(recording_path):
-        print("Recording does not exist in recordings storage. First upload recording before adding to database.")
+        print(
+            "Recording does not exist in recordings storage. First upload recording before adding to database."
+        )
         exit(0)
 
-    exists_recording = db.contains_record("name", args.recording_name)
+    exists_recording = db.contains_record("name", os.path.basename(recording_path))
 
     if exists_recording:
         if not click.confirm(
@@ -65,12 +75,13 @@ def add_recording(db, recording_path):
             print("Operation cancelled.")
             return
 
-    bagman_utils.db_add_recording(
+    bagman_utils.add_recording(
         db,
         recording_path,
         override=True,
         store_metadata_file=True,
     )
+
 
 def remove_recording(db, recording_name):
     exists_recording = db.contains_record("name", recording_name)
@@ -90,14 +101,19 @@ def remove_recording(db, recording_name):
     db.remove_record("name", recording_name)
 
 
-if __name__ == "__main__":
-    config = bagman_utils.load_config()
+def main():
     args = arg_parser().parse_args()
 
     if not args.command:
         arg_parser().print_help()
         exit(0)
 
+    config_file = args.config
+    if not os.path.exists(config_file):
+        print(f"Config file {config_file} does not exist.")
+        exit(0)
+
+    config = bagman_utils.load_config(config_file)
     db = db_utils.BagmanDB(config["database_path"])
 
     if args.command == "upload":
@@ -123,9 +139,7 @@ if __name__ == "__main__":
             exit(0)
 
         if args.add:
-            recording_path = os.path.join(
-                config["recordings_storage"], recording_name
-            )
+            recording_path = os.path.join(config["recordings_storage"], recording_name)
             add_recording(db, recording_path)
 
     elif args.command == "add":
@@ -145,7 +159,9 @@ if __name__ == "__main__":
                 if os.path.exists(recording_path):
                     print(f"Failed to delete {args.recording_name} from storage.")
                 else:
-                    print(f"{args.recording_name} has been successfully deleted from storage.")
+                    print(
+                        f"{args.recording_name} has been successfully deleted from storage."
+                    )
             else:
                 print("Operation cancelled.")
 
@@ -164,3 +180,6 @@ if __name__ == "__main__":
             f"recording exists in storage: {'yes' if exists_recording_storage else 'no'}"
         )
         print(f"recording exists in database: {'yes' if exists_recording else 'no'}")
+
+if __name__ == "__main__":
+    main()

@@ -18,7 +18,7 @@ CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.yaml")
 
 sys.path.append(PROJECT_ROOT)
 
-from utils import bagman_utils, db_utils
+from bagman.utils import bagman_utils, db_utils
 
 
 def get_git_version():

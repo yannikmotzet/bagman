@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bagman"
+version = "0.1.0"
+description = "bagman (ROS 2 bag management tool)"
+authors = [{name = "Yannik Motzet"}]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.2.2",
+    "pandas>=2.2.3",
+    "mcap>=1.2.2",
+    "mcap-ros2-support>=0.5.5",
+    "streamlit>=1.41.1",
+    "PyYAML>=6.0.2",
+    "tinydb>=4.8.2",
+    "click>=8.1.8",
+    "tqdm>=4.67.1",
+    "plotly>=6.0.0",
+    "opencv-python>=4.11.0.86",
+    "perfect>=0.0.1",
+    "scipy>=1.15.2",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3.4",
+]
+dev = [
+    "pre-commit>=4.1.0",
+    "black>=23.0",
+    "flake8>=6.0",
+]
+
+[project.scripts]
+bagman = "bagman.bagman:main" # CLI entry point for bagman.py
+
+[project.urls]
+repository = "https://github.com/yannikmotzet/bagman" 
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bagman"]
+

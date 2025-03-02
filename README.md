@@ -11,7 +11,6 @@
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-- [How to use](#how-to-use)
 - [Contributing](#contributing)
 
 </details>
@@ -31,42 +30,61 @@
 
 ## Installation
 
-1. Clone the repository:
-    ```sh
-    git clone https://github.com/yannikmotzet/bagman.git && cd bagman
-    ```
+Clone the repository:
+```sh
+git clone https://github.com/yannikmotzet/bagman.git && cd bagman
+```
 
-2. Build the Docker image:
+## Run Dashboard
+
+1. Build the Docker image:
     ```sh
     docker build -t bagman .
     ```
+    > **Note:** On Ubuntu, `sudo` is required for Docker commands.
 
-3. Set environment variables for docker-compose:
+2. Set environment variables for docker-compose:
     ```sh
     echo "RECORDINGS_STORAGE=$(yq '.recordings_storage' config.yaml)" > .env
     echo "DASHBOARD_PORT=$(yq '.dashboard_port' config.yaml)" >> .env
     ```
 
-4. Start the application:
+3. Start the application:
     ```sh
     docker-compose up -d
     ```
-5. Open Dashboard in browser: [localhost:8051](http://localhost:8051/)
+    > **Note:** On Ubuntu, `sudo` is required for Docker commands.
 
-## How to use
+4. Open Dashboard in browser: [localhost:8051](http://localhost:8051/)
 
-- **CLI**
-```
+## Run CLI
+
+1. Install the package:
+    ```sh
+    pip install .
+    ```
+
+2. Run the CLI:
+    ```sh
+    bagman
+    ```
+
+    ```
     bagman CLI
 
     positional arguments:
-      {upload,add,delete,remove,exist}
+    {upload,add,delete,remove,exist}
         upload              upload a recording to storage (optional: add to database)
         add                 add a recording to database
         delete              delete a recording from storage (optional: remove from database)
         remove              remove a recording from database
         exist               check if recording exists in storage and database
-```
+
+    options:
+    -h, --help            show this help message and exit
+    -c CONFIG, --config CONFIG
+                            path to config file, default: config.yaml in current directory
+    ```
 
 
 ## Contributing

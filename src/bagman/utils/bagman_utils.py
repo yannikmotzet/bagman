@@ -8,7 +8,7 @@ import yaml
 from scipy.signal import medfilt
 from tqdm import tqdm
 
-from utils import db_utils, mcap_utils, plot_utils
+from bagman.utils import db_utils, mcap_utils, plot_utils
 
 
 def load_config(file_path="config.yaml"):
