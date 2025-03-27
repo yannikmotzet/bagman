@@ -1,12 +1,14 @@
 import glob
 import hashlib
-import json
 import os
-import sys
+import time
 from collections import defaultdict
 from typing import Any, Dict
 
+import cv2
+import numpy as np
 from mcap.reader import make_reader
+from mcap_ros2.decoder import DecoderFactory
 
 
 def get_mcap_info(file: str) -> Dict[str, Any]:
@@ -67,6 +69,7 @@ def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]
             - end_time (float): The latest end time among all files.
             - duration (float): The total duration from start_time to end_time.
             - size (int): The total size of all .mcap files.
+            - time_modified (float): The time the recording info was last generated.
             - files (Dict[str, Dict[str, Any]]): Information about each file, including:
                 - start_time (float): The start time of the file.
                 - end_time (float): The end time of the file.
@@ -96,6 +99,7 @@ def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]
         "duration": None,
         "path": recording_path,
         "size": 0,
+        "time_modified": time.time(),
         "files": {},
         "topics": {},
     }
@@ -177,3 +181,88 @@ def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]
     merged_info["files"] = list(merged_info["files"].values())
 
     return merged_info
+
+
+def read_msg_nav_sat_fix(files, topic, step=1):
+    """
+    Reads latitude, longitude, and altitude from a NavSatFix topic in one or more MCAP files.
+
+    Args:
+        files (Union[str, List[str]]): The path to the MCAP file or a list of paths to MCAP files.
+        topic (str): The topic to read the NavSatFix messages from.
+        step (int): The number of frames to skip between reads.
+
+    Returns:
+        List[Dict[str, float]]: A list of dictionaries containing 'latitude', 'longitude', and 'altitude'.
+    """
+
+    if isinstance(files, str):
+        files = [files]
+
+    nav_sat_data = []
+    frame_count = 0
+
+    for file in files:
+        with open(file, "rb") as f:
+            reader = make_reader(f, decoder_factories=[DecoderFactory()])
+
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages():
+                if (
+                    channel.topic == topic
+                    and schema.name == "sensor_msgs/msg/NavSatFix"
+                ):
+                    if frame_count % step == 0:
+                        nav_sat_data.append(
+                            {
+                                "stamp": ros_msg.header.stamp.sec
+                                + ros_msg.header.stamp.nanosec * 1e-9,
+                                "latitude": ros_msg.latitude,
+                                "longitude": ros_msg.longitude,
+                                "altitude": ros_msg.altitude,
+                            }
+                        )
+                    frame_count += 1
+
+    return nav_sat_data
+
+
+def read_msg_image(files, topic):
+    """
+    Reads image data from a Camera topic in one or more MCAP files.
+
+    Args:
+        files (Union[str, List[str]]): The path to the MCAP file or a list of paths to MCAP files.
+        topic (str): The topic to read the Camera messages from.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries containing 'stamp', 'data'.
+    """
+
+    if isinstance(files, str):
+        files = [files]
+
+    camera_data = []
+
+    for file in files:
+        with open(file, "rb") as f:
+            reader = make_reader(f, decoder_factories=[DecoderFactory()])
+
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages():
+                if channel.topic == topic:
+                    if schema.name == "sensor_msgs/msg/Image":
+                        image_np = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape(
+                            (ros_msg.height, ros_msg.width, -1)
+                        )
+                    elif schema.name == "sensor_msgs/msg/CompressedImage":
+                        np_arr = np.frombuffer(ros_msg.data, dtype=np.uint8)
+                        # decode JPEG
+                        image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                    camera_data.append(
+                        {
+                            "stamp": ros_msg.header.stamp.sec
+                            + ros_msg.header.stamp.nanosec * 1e-9,
+                            "data": image_np,
+                        }
+                    )
+
+    return camera_data

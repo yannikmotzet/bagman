@@ -1,5 +1,7 @@
 import os
-from tinydb import TinyDB, Query
+
+from tinydb import Query, TinyDB
+
 
 class BagmanDB:
     def __init__(self, database_path):
@@ -9,8 +11,16 @@ class BagmanDB:
             database_path (str): The path to the TinyDB database file.
         """
         if not os.path.exists(database_path):
-            raise FileNotFoundError(f"The database file at {database_path} does not exist.")
+            raise FileNotFoundError(
+                f"The database file at {database_path} does not exist."
+            )
         self.db = TinyDB(database_path)
+
+    def __del__(self):
+        """
+        Destructor to close the TinyDB database.
+        """
+        self.db.close()
 
     def get_all_records(self):
         """
@@ -62,7 +72,7 @@ class BagmanDB:
         """
         query = Query()[column_name] == value
         return self.db.get(query)
-    
+
     def search_record(self, column_name, value):
         """
         Search for records in the TinyDB database that match a specific column value.
