@@ -333,17 +333,20 @@ def st_page_recordings():
 
     # display the dataframe
 
-    # TODO fix path link
-    event = st.dataframe(
-        data,
+    column_config = {}
+    if config["dash_allow_path_link"]:
         column_config={
             "path": st.column_config.LinkColumn(
                 "path",
-                help="open recording in file manager",
+                help="open link to recording in new tab",
                 max_chars=100,
                 display_text=None,
             ),
-        },
+        }
+
+    event = st.dataframe(
+        data,
+        column_config=column_config,
         use_container_width=True,
         height=500,
         hide_index=True,
