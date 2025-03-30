@@ -61,19 +61,22 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
 
 1. Install the package:
     ```sh
-    pip install .
-    ```
+     pip install .
+     ```
+     > **Note:** For development use `pip install -e .` which creates a symbolic link to the source code.
 
-2. Run the CLI:
+## Run the CLI
+
+2. Execute the CLI:
     ```sh
     bagman
     ```
 
-    ```
+    ```plaintext
     bagman CLI
 
     positional arguments:
-    {upload,add,delete,remove,exist}
+      {upload,add,delete,remove,exist}
         upload              upload a recording to storage (optional: add to database)
         add                 add a recording to database
         delete              delete a recording from storage (optional: remove from database)
@@ -81,8 +84,8 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
         exist               check if recording exists in storage and database
 
     options:
-    -h, --help            show this help message and exit
-    -c CONFIG, --config CONFIG
+      -h, --help            show this help message and exit
+      -c CONFIG, --config CONFIG
                             path to config file, default: config.yaml in current directory
     ```
 
