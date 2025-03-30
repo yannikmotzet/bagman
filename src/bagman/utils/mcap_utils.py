@@ -29,7 +29,7 @@ def get_mcap_info(file: str) -> Dict[str, Any]:
     with open(file, "rb") as f:
         reader = make_reader(f)
 
-        channel_info = defaultdict(
+        channel_info: Dict[str, Dict[str, Any]] = defaultdict(
             lambda: {
                 "num_messages": 0,
                 "message_type": None,
@@ -43,15 +43,17 @@ def get_mcap_info(file: str) -> Dict[str, Any]:
             info = channel_info[channel.topic]
             info["num_messages"] += 1
             info["message_type"] = schema.name
-            timestamp = message.log_time / 1e9
+            timestamp = message.log_time / 1e9 if message.log_time is not None else 0
             if info["start_time"] is None or timestamp < info["start_time"]:
                 info["start_time"] = timestamp
             if info["end_time"] is None or timestamp > info["end_time"]:
                 info["end_time"] = timestamp
 
         for info in channel_info.values():
-            duration = info["end_time"] - info["start_time"]
-            info["frequency"] = info["num_messages"] / duration if duration > 0 else 0
+            duration = (info["end_time"] or 0) - (info["start_time"] or 0)
+            info["frequency"] = (
+                info["num_messages"] / duration if duration > 0 else None
+            )
 
     return channel_info
 
@@ -90,9 +92,9 @@ def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]
     )
 
     if len(mcap_files) == 0:
-        return None
+        return {}
 
-    merged_info = {
+    merged_info: Dict[str, Any] = {
         "name": os.path.basename(recording_path),
         "start_time": None,
         "end_time": None,
@@ -206,7 +208,7 @@ def read_msg_nav_sat_fix(files, topic, step=1):
         with open(file, "rb") as f:
             reader = make_reader(f, decoder_factories=[DecoderFactory()])
 
-            for schema, channel, message, ros_msg in reader.iter_decoded_messages():
+            for schema, channel, _, ros_msg in reader.iter_decoded_messages():
                 if (
                     channel.topic == topic
                     and schema.name == "sensor_msgs/msg/NavSatFix"

@@ -3,7 +3,6 @@ import io
 import os
 import subprocess
 import sys
-import time
 import zipfile
 from datetime import timedelta
 
@@ -43,12 +42,14 @@ def load_data(_database, check_integrity=True):
             missing_columns = set(config["db_columns"]) - set(columns)
             missing_columns_str = ", ".join(f"`{col}`" for col in missing_columns)
             with st.expander("⚠️ database is corrupt"):
-                st.write(f"Following columns are missing in the database: {missing_columns_str}")
+                st.write(
+                    f"Following columns are missing in the database: {missing_columns_str}"
+                )
 
     df = df.drop(columns=config["dash_cols_ignore"], errors="ignore")
     # df = df.iloc[::-1] # data is already sorted, oldest on top
     df = df.sort_values(by="start_time", ascending=False)
-    
+
     # convert datetime and datetime columns
     for col in config["dash_cols_datetime"]:
         if col in df.columns:
@@ -65,7 +66,7 @@ def select_recording(selected_recording, database):
     if not recording_data:
         st.error("recording not found in database")
         return
-    
+
     # TODO check if "files", "path", "topics" in result
 
     # TODO add button to open recording
@@ -117,16 +118,16 @@ def select_recording(selected_recording, database):
 
         # TODO add option to select by topic/message -> filter and create new .mcap
 
-        files = glob.glob(os.path.join(recording_data["path"], "**", "*"), recursive=True)
+        files = glob.glob(
+            os.path.join(recording_data["path"], "**", "*"), recursive=True
+        )
         selected_files = []
         for file in files:
-            if os.path.isdir(file): 
+            if os.path.isdir(file):
                 continue
             file_path = os.path.relpath(file, recording_data["path"])
             file_size = os.path.getsize(file) / (1024 * 1024)  # convert to MB
-            if st.checkbox(
-                f"{file_path} ({file_size:.2f} MB)", key=file, value=True
-            ):
+            if st.checkbox(f"{file_path} ({file_size:.2f} MB)", key=file, value=True):
                 selected_files.append(file)
 
         if selected_files:
@@ -398,7 +399,7 @@ def st_page_upload():
         if os.path.splitext(file.name)[0].rsplit("_", 1)[0] != recording_name:
             st.error("all .mcap files must belong to the same recording")
             return
-        
+
     metadata = {key: "" for key in config["metadata_recorder"]}
     if metadata_file:
         metadata_file = yaml.safe_load(metadata_file.getvalue())
