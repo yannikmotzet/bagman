@@ -1,14 +1,13 @@
 import os
-import time
 import shutil
+import time
 from math import atan2, cos, radians, sin, sqrt
 
 import cv2
 import yaml
 from scipy.signal import medfilt
-from tqdm import tqdm
 
-from bagman.utils import db_utils, mcap_utils, plot_utils
+from bagman.utils import mcap_utils, plot_utils
 
 
 def load_config(file_path="config.yaml"):
@@ -71,9 +70,7 @@ def load_yaml_file(file):
         with open(file, "r") as file:
             return yaml.safe_load(file)
     except FileNotFoundError:
-        print(
-            f"Error: {file} not found"
-        )
+        print(f"Error: {file} not found")
         return None
     except yaml.YAMLError as exc:
         print(f"Error parsing YAML file {os.path.basename(file)}: {exc}")
@@ -81,7 +78,8 @@ def load_yaml_file(file):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return None
-    
+
+
 def save_yaml_file(data, file_path):
     """
     Save data to a YAML file.
@@ -91,7 +89,7 @@ def save_yaml_file(data, file_path):
     Raises:
         Exception: If there is an error while writing to the file.
     """
-    
+
     try:
         with open(file_path, "w") as file:
             yaml.dump(data, file)

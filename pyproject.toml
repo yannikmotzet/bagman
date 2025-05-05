@@ -39,8 +39,7 @@ dev = [
 bagman = "bagman.bagman:main" # CLI entry point for bagman.py
 
 [project.urls]
-repository = "https://github.com/yannikmotzet/bagman" 
+repository = "https://github.com/yannikmotzet/bagman"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bagman"]
-

@@ -13,7 +13,10 @@ def arg_parser():
 
     # config command
     parser.add_argument(
-        "-c", "--config", default="config.yaml", help="path to config file, default: config.yaml in current directory"
+        "-c",
+        "--config",
+        default="config.yaml",
+        help="path to config file, default: config.yaml in current directory",
     )
 
     # upload command
@@ -180,6 +183,7 @@ def main():
             f"recording exists in storage: {'yes' if exists_recording_storage else 'no'}"
         )
         print(f"recording exists in database: {'yes' if exists_recording else 'no'}")
+
 
 if __name__ == "__main__":
     main()
