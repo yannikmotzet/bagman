@@ -21,7 +21,7 @@ dependencies = [
     "tqdm>=4.67.1",
     "plotly>=6.0.0",
     "opencv-python>=4.11.0.86",
-    "perfect>=0.0.1",
+    "prefect==3.4.0",
     "scipy>=1.15.2",
     "pymongo>=4.13.0",
     "elasticsearch>=9.0.1",
