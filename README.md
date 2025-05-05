@@ -20,7 +20,7 @@
 - **CLI**
 - **Database:** [TinyDB](https://github.com/msiemens/tinydb)
 - **Dashboard:** [Streamlit](https://github.com/streamlit/streamlit)
-- **Pipeline (TODO):** [Perfect](https://github.com/PrefectHQ/prefect)
+- **Pipeline (TODO):** [Prefect](https://github.com/PrefectHQ/prefect)
 
 ## Prerequisites
 
@@ -41,7 +41,6 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
     ```sh
     docker build -t bagman .
     ```
-    > **Note:** On Ubuntu, `sudo` is required for Docker commands.
 
 2. Set environment variables for docker-compose:
     ```sh
@@ -53,7 +52,6 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
     ```sh
     docker-compose up -d
     ```
-    > **Note:** On Ubuntu, `sudo` is required for Docker commands.
 
 4. Open Dashboard in browser: [localhost:8051](http://localhost:8051/)
 
