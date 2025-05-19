@@ -4,6 +4,9 @@ maxUploadSize = 4096
 [browser]
 gatherUsageStats = false
 
+[client]
+toolbarMode = "developer"
+
 [theme]
 primaryColor = "#00DB84"
 backgroundColor = "#0E1117"
