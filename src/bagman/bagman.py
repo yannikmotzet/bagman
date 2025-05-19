@@ -61,7 +61,7 @@ def arg_parser():
     return parser
 
 
-def add_recording(db, recording_path):
+def add_recording(db, recording_path, metadata_file_name):
     if not os.path.exists(recording_path):
         print(
             "Recording does not exist in recordings storage. First upload recording before adding to database."
@@ -81,6 +81,7 @@ def add_recording(db, recording_path):
     bagman_utils.add_recording(
         db,
         recording_path,
+        metadata_file_name=metadata_file_name,
         override=True,
         store_metadata_file=True,
     )
@@ -147,7 +148,9 @@ def main():
 
     elif args.command == "add":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_recording(db, recording_path)
+        add_recording(
+            db, recording_path, metadata_file_name=config["metadata_file_name"]
+        )
 
     elif args.command == "delete":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
