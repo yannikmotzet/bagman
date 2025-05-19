@@ -96,6 +96,8 @@ def select_recording(selected_recording, database):
             for video_file in video_files:
                 st.text(os.path.basename(video_file))
                 st.video(video_file)
+        else:
+            st.info("video not available")
 
     with tab_topics:
         if "topics" in recording_data:
@@ -127,7 +129,7 @@ def select_recording(selected_recording, database):
                 continue
             file_path = os.path.relpath(file, recording_data["path"])
             file_size = os.path.getsize(file) / (1024 * 1024)  # convert to MB
-            if st.checkbox(f"{file_path} ({file_size:.2f} MB)", key=file, value=True):
+            if st.checkbox(f"{file_path} ({file_size:.2f} MB)", key=file, value=False):
                 selected_files.append(file)
 
         if selected_files:
@@ -144,7 +146,7 @@ def select_recording(selected_recording, database):
                 mime="application/zip",
             )
         else:
-            st.info("No files selected for download")
+            st.info("please select files to download")
 
 
 def filter_recording(data, container):
@@ -275,9 +277,7 @@ def st_page_recordings():
     st_sidebar = st.sidebar
     col1, col2 = st_sidebar.columns(2)
     with col1:
-        st_metric_all_results = st.metric(
-            "number all results", num_total_data, border=False
-        )
+        st.metric("number all results", num_total_data, border=False)
     with col2:
         st_metric_number_results = st.empty()
 
@@ -326,16 +326,18 @@ def st_page_recordings():
     for column in config["dash_cols_timedelta"]:
         if column in data.columns:
             data[column] = data[column].apply(
-                lambda x: str(x)
-                if pd.isnull(x)
-                else f"{int(x.total_seconds() // 3600):02}:{int((x.total_seconds() % 3600) // 60):02}:{int(x.total_seconds() % 60):02}"
+                lambda x: (
+                    str(x)
+                    if pd.isnull(x)
+                    else f"{int(x.total_seconds() // 3600):02}:{int((x.total_seconds() % 3600) // 60):02}:{int(x.total_seconds() % 60):02}"
+                )
             )
 
     # display the dataframe
 
     column_config = {}
     if config["dash_allow_path_link"]:
-        column_config={
+        column_config = {
             "path": st.column_config.LinkColumn(
                 "path",
                 help="open link to recording in new tab",
@@ -502,7 +504,7 @@ def main():
             "About": (
                 f"### bagman\n"
                 f"version: {get_git_version()}  \n"
-                f"check out bagman on [Git Hub](https://github.com/yannikmotzet/bagman)"
+                f"check out bagman on [GitHub](https://github.com/yannikmotzet/bagman)"
             )
         },
     )
