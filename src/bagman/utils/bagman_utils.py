@@ -219,7 +219,11 @@ def generate_map(recording_name, config="config.yaml", topic=None, speed=True):
             for t in metadata["topics"]
             if t["type"] == "sensor_msgs/msg/NavSatFix"
         ]
+        if len(topics_nav_sat_fix) == 0:
+            print("no NavSatFix topic found")
+            return
         topic = topics_nav_sat_fix[0]
+
     mcap_files = [os.path.join(recording_path, f["path"]) for f in metadata["files"]]
 
     gps_data = mcap_utils.read_msg_nav_sat_fix(mcap_files, topic)
