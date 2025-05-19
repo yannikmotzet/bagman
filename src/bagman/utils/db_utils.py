@@ -20,7 +20,8 @@ class BagmanDB:
         """
         Destructor to close the TinyDB database.
         """
-        self.db.close()
+        if hasattr(self, "db") and self.db is not None:
+            self.db.close()
 
     def get_all_records(self):
         """
@@ -75,7 +76,8 @@ class BagmanDB:
 
     def search_record(self, column_name, value):
         """
-        Search for records in the TinyDB database that match a specific column value.
+        Search for records in the TinyDB database that match a specific
+        column value.
         Args:
             column_name (str): The column name to match the records.
             value: The value to match the records.
