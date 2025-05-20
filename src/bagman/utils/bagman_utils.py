@@ -92,7 +92,7 @@ def save_yaml_file(data, file_path):
 
     try:
         with open(file_path, "w") as file:
-            yaml.dump(data, file)
+            yaml.dump(data, file, sort_keys=False)
     except Exception as e:
         raise Exception(f"An error occurred while saving the YAML file: {e}")
 
