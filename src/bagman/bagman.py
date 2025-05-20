@@ -69,6 +69,9 @@ def add_recording(db, recording_path, metadata_file_name):
         exit(0)
 
     exists_recording = db.contains_record("name", os.path.basename(recording_path))
+    exists_metadata_file = os.path.exists(
+        os.path.join(os.path.dirname(recording_path), metadata_file_name)
+    )
 
     if exists_recording:
         if not click.confirm(
@@ -78,11 +81,17 @@ def add_recording(db, recording_path, metadata_file_name):
             print("Operation cancelled.")
             return
 
+    if exists_metadata_file:
+        regenerate_metadata = click.confirm(
+            "Metadata file already exists. Do you want to regenerate it?", default=True
+        )
+
     bagman_utils.add_recording(
         db,
         recording_path,
         metadata_file_name=metadata_file_name,
-        override=True,
+        regenerate_metadata=regenerate_metadata,
+        override_db=True,
         store_metadata_file=True,
     )
 

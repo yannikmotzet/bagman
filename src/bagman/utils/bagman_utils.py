@@ -106,7 +106,8 @@ def add_recording(
     database,
     recording_path,
     metadata_file_name="rec_metadata.yaml",
-    override=False,
+    regenerate_metadata=True,
+    override_db=True,
     sort_by="start_time",
     store_metadata_file=True,
 ):
@@ -115,7 +116,8 @@ def add_recording(
     Args:
         recording_path (str): The path to the recording file.
         database (BagmanDB): An instance of the BagmanDB class.
-        override (bool, optional): If True, existing records with the same path will be updated. Defaults to False.
+        regenerate_metadata (bool, optional): If True, the metadata will be regenerated. Defaults to True.
+        override_db (bool, optional): If True, existing records in db with the same path will be updated. Defaults to True.
         sort_by (str, optional): The field by which to sort the database records. Defaults to "start_time".
         store_metadata_file (bool, optional): If True, the recording metadata will be stored in a YAML file at the recording path. Defaults to True.
     Raises:
@@ -125,25 +127,35 @@ def add_recording(
     """
     metadata_file = os.path.join(recording_path, metadata_file_name)
 
-    # generate new metadata
-    rec_metadata = mcap_utils.get_rec_info(recording_path)
-
-    # update existing metadata file
-    if os.path.exists(metadata_file):
-        rec_metadata_old = load_yaml_file(metadata_file)
-        rec_metadata_old.update(rec_metadata)
-        rec_metadata = rec_metadata_old
-
-    if store_metadata_file:
-        # TODO backup old file
+    # use existing metadata file
+    if not regenerate_metadata and os.path.exists(metadata_file):
         try:
-            save_yaml_file(rec_metadata, metadata_file)
+            rec_metadata = load_yaml_file(metadata_file)
         except Exception as e:
             print(str(e))
 
+    # generate new metadata
+    else:
+        rec_metadata = mcap_utils.get_rec_info(recording_path)
+
+        # update existing metadata file
+        if os.path.exists(metadata_file):
+            rec_metadata_old = load_yaml_file(metadata_file)
+            rec_metadata_old.update(rec_metadata)
+            rec_metadata = rec_metadata_old
+
+        if store_metadata_file:
+            # TODO backup old file
+            try:
+                save_yaml_file(rec_metadata, metadata_file)
+            except Exception as e:
+                print(str(e))
+
     time_added = time.time()
+
+    # override existing entry in db
     if database.contains_record("name", rec_metadata["name"]):
-        if not override:
+        if not override_db:
             return
 
         existing_record = database.get_record("name", rec_metadata["name"])

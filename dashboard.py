@@ -476,7 +476,7 @@ def st_page_upload():
 
         # trigger add to database
         db = db_utils.BagmanDB(config["database_path"])
-        bagman_utils.add_recording(db, recording_path, override=True)
+        bagman_utils.add_recording(db, recording_path)
         del db
 
 
