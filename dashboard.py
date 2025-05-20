@@ -133,18 +133,19 @@ def select_recording(selected_recording, database):
                 selected_files.append(file)
 
         if selected_files:
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w") as zipf:
-                for file in selected_files:
-                    zipf.write(file, os.path.relpath(file, recording_data["path"]))
+            with st.spinner("Creating .zip file ..."):
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "w") as zipf:
+                    for file in selected_files:
+                        zipf.write(file, os.path.relpath(file, recording_data["path"]))
 
-            zip_buffer.seek(0)
-            st.download_button(
-                label="Download selected files as ZIP",
-                data=zip_buffer,
-                file_name=f"{recording_data['name']}_selected.zip",
-                mime="application/zip",
-            )
+                zip_buffer.seek(0)
+                st.download_button(
+                    label="Download selected files as .zip",
+                    data=zip_buffer,
+                    file_name=f"{recording_data['name']}.zip",
+                    mime="application/zip",
+                )
         else:
             st.info("please select files to download")
 
