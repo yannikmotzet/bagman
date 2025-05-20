@@ -183,7 +183,7 @@ def filter_recording(data, container):
                 data[column].min().total_seconds(), unit="s"
             ).time()
             max_duration = pd.to_datetime(
-                data[column].max().total_seconds(), unit="s"
+                np.ceil(data[column].max().total_seconds()), unit="s"
             ).time()
 
             min_duration_td = pd.to_timedelta(min_duration.strftime("%H:%M:%S"))
