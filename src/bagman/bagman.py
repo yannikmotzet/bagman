@@ -4,7 +4,7 @@ import os
 
 import click
 
-from bagman.utils import bagman_utils, db_utils, mcap_utils
+from bagman.utils import bagman_utils, db_utils
 
 
 def arg_parser():
@@ -108,7 +108,7 @@ def add_recording(db, recording_path, metadata_file_name):
         db,
         recording_path,
         metadata_file_name=metadata_file_name,
-        regenerate_metadata=regenerate_metadata,
+        use_existing_metadata=regenerate_metadata,
         override_db=True,
         store_metadata_file=True,
     )
@@ -226,22 +226,13 @@ def main():
             print("Recording not found")
             exit(0)
 
-        # generate metadata
-        rec_metadata = mcap_utils.get_rec_info(recording_path)
-
-        # merge with existing metadata file
-        metadata_file = os.path.join(recording_path, config["metadata_file"])
-        if os.path.exists(metadata_file):
-            try:
-                rec_metadata_old = bagman_utils.load_yaml_file(metadata_file)
-            except Exception as e:
-                print(str(e))
-                exit(0)
-            rec_metadata_old.update(rec_metadata)
-            rec_metadata = rec_metadata_old
-
-        # save metadata to file
-        bagman_utils.save_yaml_file(rec_metadata, metadata_file)
+        # generate metadata (merge with existing and store to file)
+        bagman_utils.generate_metadata(
+            recording_path,
+            metadata_file_name=config["metadata_file"],
+            merge_existing=True,
+            store_file=True,
+        )
 
 
 if __name__ == "__main__":
