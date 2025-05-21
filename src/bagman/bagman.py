@@ -4,7 +4,7 @@ import os
 
 import click
 
-from bagman.utils import bagman_utils, db_utils
+from bagman.utils import bagman_utils, db_utils, mcap_utils
 
 
 def arg_parser():
@@ -19,7 +19,7 @@ def arg_parser():
         help="path to config file, default: config.yaml in current directory",
     )
 
-    # upload command
+    # upload command (upload local recording to storage and optionally add to database)
     upload_parser = subparsers.add_parser(
         "upload", help="upload a recording to storage (optional: add to database)"
     )
@@ -33,11 +33,13 @@ def arg_parser():
         "-a", "--add", action="store_true", help="add recording to database"
     )
 
-    # add command
-    add_parser = subparsers.add_parser("add", help="add a recording to database")
+    # add command (add a recording to database or update existing one)
+    add_parser = subparsers.add_parser(
+        "add", help="add a recording to database or update existing one"
+    )
     add_parser.add_argument("recording_name", help="name of the recording")
 
-    # delete command
+    # delete command (delete recording from storage and optionally remove from database)
     delete_parser = subparsers.add_parser(
         "delete",
         help="delete a recording from storage (optional: remove from database)",
@@ -47,7 +49,7 @@ def arg_parser():
         "-r", "--remove", action="store_true", help="remove recording from database"
     )
 
-    # remove command
+    # remove command (remove recording from database)
     remove_parser = subparsers.add_parser(
         "remove", help="remove a recording from database"
     )
@@ -58,6 +60,22 @@ def arg_parser():
         "exist", help="check if recording exists in storage and database"
     )
     exist_parser.add_argument("recording_name", help="name of the recording")
+
+    # metadata command (generate metadata for a recording and save it to file)
+    metadata_parser = subparsers.add_parser(
+        "metadata", help="generate metadata for a recording"
+    )
+    metadata_parser.add_argument(
+        "recording_name",
+        help="name of the recording (or local path) to generate metadata for",
+    )
+    metadata_parser.add_argument(
+        "-p",
+        "--path",
+        action="store_true",
+        help="use recording path instead of recording name from strorage",
+    )
+
     return parser
 
 
@@ -148,7 +166,7 @@ def main():
                 verbose=True,
             )
         except Exception as e:
-            print(f"upload failed: {str(e)}")
+            print(f"Upload failed: {str(e)}")
             exit(0)
 
         if args.add:
@@ -192,9 +210,38 @@ def main():
         exists_recording = db.contains_record("name", args.recording_name)
 
         print(
-            f"recording exists in storage: {'yes' if exists_recording_storage else 'no'}"
+            f"Recording exists in storage: {'yes' if exists_recording_storage else 'no'}"
         )
-        print(f"recording exists in database: {'yes' if exists_recording else 'no'}")
+        print(f"Recording exists in database: {'yes' if exists_recording else 'no'}")
+
+    elif args.command == "metadata":
+        if args.path:
+            recording_path = args.recording_name
+        else:
+            recording_path = os.path.join(
+                config["recordings_storage"], args.recording_name
+            )
+
+        if not os.path.exists(recording_path):
+            print("Recording not found")
+            exit(0)
+
+        # generate metadata
+        rec_metadata = mcap_utils.get_rec_info(recording_path)
+
+        # merge with existing metadata file
+        metadata_file = os.path.join(recording_path, config["metadata_file"])
+        if os.path.exists(metadata_file):
+            try:
+                rec_metadata_old = bagman_utils.load_yaml_file(metadata_file)
+            except Exception as e:
+                print(str(e))
+                exit(0)
+            rec_metadata_old.update(rec_metadata)
+            rec_metadata = rec_metadata_old
+
+        # save metadata to file
+        bagman_utils.save_yaml_file(rec_metadata, metadata_file)
 
 
 if __name__ == "__main__":

@@ -140,7 +140,10 @@ def add_recording(
 
         # update existing metadata file
         if os.path.exists(metadata_file):
-            rec_metadata_old = load_yaml_file(metadata_file)
+            try:
+                rec_metadata_old = load_yaml_file(metadata_file)
+            except Exception as e:
+                print(str(e))
             rec_metadata_old.update(rec_metadata)
             rec_metadata = rec_metadata_old
 
