@@ -121,7 +121,7 @@ def generate_metadata(
         rec_metadata = rec_metadata_old
 
     if store_file:
-        # TODO backup old file
+        # TODO backup old file (add feature to save_yaml_file())
         try:
             save_yaml_file(rec_metadata, metadata_file)
         except Exception as e:
@@ -153,12 +153,12 @@ def add_recording(
     Returns:
         None
     """
-    metadata_file = os.path.join(recording_path, metadata_file_name)
+    metadata_file_path = os.path.join(recording_path, metadata_file_name)
 
     # use existing metadata file
-    if use_existing_metadata and os.path.exists(metadata_file):
+    if use_existing_metadata and os.path.exists(metadata_file_path):
         try:
-            rec_metadata = load_yaml_file(metadata_file)
+            rec_metadata = load_yaml_file(metadata_file_path)
         except Exception as e:
             print(str(e))
 
@@ -170,6 +170,16 @@ def add_recording(
             merge_existing=True,
             store_file=store_metadata_file,
         )
+
+    # ensure that recording path in metadata is storage path and not local path
+    if "path" in rec_metadata.keys():
+        if rec_metadata["path"] != recording_path:
+            rec_metadata["path"] = recording_path
+            if store_metadata_file:
+                try:
+                    save_yaml_file(rec_metadata, metadata_file_path)
+                except Exception as e:
+                    print(str(e))
 
     time_added = time.time()
 
