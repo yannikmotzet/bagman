@@ -79,7 +79,7 @@ def arg_parser():
     return parser
 
 
-def add_recording(db, recording_path, metadata_file_name):
+def cli_add_recording(db, recording_path, metadata_file_name):
     if not os.path.exists(recording_path):
         print(
             "Recording does not exist in recordings storage. First upload recording before adding to database."
@@ -87,9 +87,8 @@ def add_recording(db, recording_path, metadata_file_name):
         exit(0)
 
     exists_recording = db.contains_record("name", os.path.basename(recording_path))
-    exists_metadata_file = os.path.exists(
-        os.path.join(os.path.dirname(recording_path), metadata_file_name)
-    )
+    metadata_file = os.path.join(recording_path, metadata_file_name)
+    exists_metadata_file = os.path.exists(metadata_file)
 
     if exists_recording:
         if not click.confirm(
@@ -99,8 +98,9 @@ def add_recording(db, recording_path, metadata_file_name):
             print("Operation cancelled.")
             return
 
+    use_existing_metadata = False
     if exists_metadata_file:
-        regenerate_metadata = click.confirm(
+        use_existing_metadata = not click.confirm(
             "Metadata file already exists. Do you want to regenerate it?", default=True
         )
 
@@ -108,13 +108,13 @@ def add_recording(db, recording_path, metadata_file_name):
         db,
         recording_path,
         metadata_file_name=metadata_file_name,
-        use_existing_metadata=regenerate_metadata,
+        use_existing_metadata=use_existing_metadata,
         override_db=True,
         store_metadata_file=True,
     )
 
 
-def remove_recording(db, recording_name):
+def cli_remove_recording(db, recording_name):
     exists_recording = db.contains_record("name", recording_name)
 
     if not exists_recording:
@@ -171,13 +171,11 @@ def main():
 
         if args.add:
             recording_path = os.path.join(config["recordings_storage"], recording_name)
-            add_recording(db, recording_path)
+            cli_add_recording(db, recording_path, config["metadata_file"])
 
     elif args.command == "add":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_recording(
-            db, recording_path, metadata_file_name=config["metadata_file_name"]
-        )
+        cli_add_recording(db, recording_path, config["metadata_file"])
 
     elif args.command == "delete":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
@@ -199,10 +197,10 @@ def main():
                 print("Operation cancelled.")
 
         if args.remove:
-            remove_recording(db, args.recording_name)
+            cli_remove_recording(db, args.recording_name)
 
     elif args.command == "remove":
-        remove_recording(db, args.recording_name)
+        cli_remove_recording(db, args.recording_name)
 
     elif args.command == "exist":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
@@ -227,7 +225,8 @@ def main():
             exit(0)
 
         # generate metadata (merge with existing and store to file)
-        bagman_utils.generate_metadata(
+        print("Generating metadata...")
+        _ = bagman_utils.generate_metadata(
             recording_path,
             metadata_file_name=config["metadata_file"],
             merge_existing=True,

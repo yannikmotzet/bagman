@@ -127,6 +127,8 @@ def generate_metadata(
         except Exception as e:
             print(str(e))
 
+    return rec_metadata
+
 
 def add_recording(
     database,
@@ -162,7 +164,7 @@ def add_recording(
 
     # generate new metadata
     else:
-        generate_metadata(
+        rec_metadata = generate_metadata(
             recording_path,
             metadata_file_name,
             merge_existing=True,
