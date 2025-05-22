@@ -71,6 +71,8 @@ def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]
             - end_time (float): The latest end time among all files.
             - duration (float): The total duration from start_time to end_time.
             - size (int): The total size of all .mcap files.
+            - path (str): The path to the recording directory.
+            - size (int): The total size of all .mcap files.
             - time_modified (float): The time the recording info was last generated.
             - files (Dict[str, Dict[str, Any]]): Information about each file, including:
                 - start_time (float): The start time of the file.
@@ -112,7 +114,7 @@ def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]
         # calculate file md5sum and size
         with open(file_path, "rb") as f:
             md5sum = hashlib.md5(f.read()).hexdigest()
-        size = os.path.getsize(file_path)
+        size = os.path.getsize(file_path)  # size in bytes
 
         # add file info
         file_start_time = min(info["start_time"] for info in mcap_info.values())
