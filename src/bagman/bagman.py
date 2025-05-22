@@ -39,6 +39,12 @@ def arg_parser():
     )
     add_parser.add_argument("recording_name", help="name of the recording")
 
+    # update command (update a recording in database)
+    update_parser = subparsers.add_parser(
+        "update", help="update a recording in database"
+    )
+    update_parser.add_argument("recording_name", help="name of the recording")
+
     # delete command (delete recording from storage and optionally remove from database)
     delete_parser = subparsers.add_parser(
         "delete",
@@ -79,29 +85,32 @@ def arg_parser():
     return parser
 
 
-def cli_add_recording(db, recording_path, metadata_file_name):
-    if not os.path.exists(recording_path):
-        print(
-            "Recording does not exist in recordings storage. First upload recording before adding to database."
-        )
-        exit(0)
+def add_or_update_recording(db, recording_path, metadata_file_name, add=True):
+    if add:
+        if not os.path.exists(recording_path):
+            print(
+                "Recording does not exist in recordings storage. First upload recording before adding to database."
+            )
+            exit(0)
 
-    exists_recording = db.contains_record("name", os.path.basename(recording_path))
+        exists_recording = db.contains_record("name", os.path.basename(recording_path))
+
+        if exists_recording:
+            if not click.confirm(
+                "Recording already exists in database. Do you want to override it?",
+                default=True,
+            ):
+                print("Operation cancelled.")
+                return
+
     metadata_file = os.path.join(recording_path, metadata_file_name)
     exists_metadata_file = os.path.exists(metadata_file)
-
-    if exists_recording:
-        if not click.confirm(
-            "Recording already exists in database. Do you want to override it?",
-            default=True,
-        ):
-            print("Operation cancelled.")
-            return
 
     use_existing_metadata = False
     if exists_metadata_file:
         use_existing_metadata = not click.confirm(
-            "Metadata file already exists. Do you want to regenerate it?", default=True
+            "Metadata file already exists. Do you want to regenerate the metadata instead of using it from the file?",
+            default=True,
         )
 
     bagman_utils.add_recording(
@@ -114,7 +123,7 @@ def cli_add_recording(db, recording_path, metadata_file_name):
     )
 
 
-def cli_remove_recording(db, recording_name):
+def remove_recording(db, recording_name):
     exists_recording = db.contains_record("name", recording_name)
 
     if not exists_recording:
@@ -171,11 +180,15 @@ def main():
 
         if args.add:
             recording_path = os.path.join(config["recordings_storage"], recording_name)
-            cli_add_recording(db, recording_path, config["metadata_file"])
+            add_or_update_recording(db, recording_path, config["metadata_file"], True)
 
     elif args.command == "add":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        cli_add_recording(db, recording_path, config["metadata_file"])
+        add_or_update_recording(db, recording_path, config["metadata_file"], True)
+
+    elif args.command == "update":
+        recording_path = os.path.join(config["recordings_storage"], args.recording_name)
+        add_or_update_recording(db, recording_path, config["metadata_file"], False)
 
     elif args.command == "delete":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
@@ -197,10 +210,10 @@ def main():
                 print("Operation cancelled.")
 
         if args.remove:
-            cli_remove_recording(db, args.recording_name)
+            remove_recording(db, args.recording_name)
 
     elif args.command == "remove":
-        cli_remove_recording(db, args.recording_name)
+        remove_recording(db, args.recording_name)
 
     elif args.command == "exist":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
