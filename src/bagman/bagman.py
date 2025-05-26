@@ -19,12 +19,12 @@ def arg_parser():
         help="path to config file, default: config.yaml in current directory",
     )
 
-    # upload command (upload local recording to storage and optionally add to database)
+    # upload command
     upload_parser = subparsers.add_parser(
-        "upload", help="upload a recording to storage (optional: add to database)"
+        "upload", help="upload local recording to storage (optional: add to database)"
     )
     upload_parser.add_argument(
-        "recording_path_local", help="path to the local recording to upload"
+        "recording_path_local", help="path to the local recording"
     )
     upload_parser.add_argument(
         "-m", "--move", action="store_true", help="move instead of copy the recording"
@@ -33,19 +33,19 @@ def arg_parser():
         "-a", "--add", action="store_true", help="add recording to database"
     )
 
-    # add command (add a recording to database or update existing one)
+    # add command
     add_parser = subparsers.add_parser(
         "add", help="add a recording to database or update existing one"
     )
     add_parser.add_argument("recording_name", help="name of the recording")
 
-    # update command (update a recording in database)
+    # update command
     update_parser = subparsers.add_parser(
-        "update", help="update a recording in database"
+        "update", help="update an existing recording in database"
     )
     update_parser.add_argument("recording_name", help="name of the recording")
 
-    # delete command (delete recording from storage and optionally remove from database)
+    # delete command
     delete_parser = subparsers.add_parser(
         "delete",
         help="delete a recording from storage (optional: remove from database)",
@@ -55,7 +55,7 @@ def arg_parser():
         "-r", "--remove", action="store_true", help="remove recording from database"
     )
 
-    # remove command (remove recording from database)
+    # remove command
     remove_parser = subparsers.add_parser(
         "remove", help="remove a recording from database"
     )
@@ -67,19 +67,12 @@ def arg_parser():
     )
     exist_parser.add_argument("recording_name", help="name of the recording")
 
-    # metadata command (generate metadata for a recording and save it to file)
+    # metadata command
     metadata_parser = subparsers.add_parser(
-        "metadata", help="generate metadata for a recording"
+        "metadata", help="(re)generate metadata file for a local recording"
     )
     metadata_parser.add_argument(
-        "recording_name",
-        help="name of the recording (or local path) to generate metadata for",
-    )
-    metadata_parser.add_argument(
-        "-p",
-        "--path",
-        action="store_true",
-        help="use recording path instead of recording name from strorage",
+        "recording_path_local", help="path to the local recording"
     )
 
     return parser
@@ -226,21 +219,14 @@ def main():
         print(f"Recording exists in database: {'yes' if exists_recording else 'no'}")
 
     elif args.command == "metadata":
-        if args.path:
-            recording_path = args.recording_name
-        else:
-            recording_path = os.path.join(
-                config["recordings_storage"], args.recording_name
-            )
-
-        if not os.path.exists(recording_path):
+        if not os.path.exists(args.recording_path_local):
             print("Recording not found")
             exit(0)
 
         # generate metadata (merge with existing and store to file)
         print("Generating metadata...")
         _ = bagman_utils.generate_metadata(
-            recording_path,
+            args.recording_path_local,
             metadata_file_name=config["metadata_file"],
             merge_existing=True,
             store_file=True,
