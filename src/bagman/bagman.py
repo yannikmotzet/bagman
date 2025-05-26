@@ -21,10 +21,10 @@ def arg_parser():
 
     # upload command
     upload_parser = subparsers.add_parser(
-        "upload", help="upload a recording to storage (optional: add to database)"
+        "upload", help="upload local recording to storage (optional: add to database)"
     )
     upload_parser.add_argument(
-        "recording_path_local", help="path to the local recording to upload"
+        "recording_path_local", help="path to the local recording"
     )
     upload_parser.add_argument(
         "-m", "--move", action="store_true", help="move instead of copy the recording"
@@ -34,8 +34,16 @@ def arg_parser():
     )
 
     # add command
-    add_parser = subparsers.add_parser("add", help="add a recording to database")
+    add_parser = subparsers.add_parser(
+        "add", help="add a recording to database or update existing one"
+    )
     add_parser.add_argument("recording_name", help="name of the recording")
+
+    # update command
+    update_parser = subparsers.add_parser(
+        "update", help="update an existing recording in database"
+    )
+    update_parser.add_argument("recording_name", help="name of the recording")
 
     # delete command
     delete_parser = subparsers.add_parser(
@@ -58,39 +66,51 @@ def arg_parser():
         "exist", help="check if recording exists in storage and database"
     )
     exist_parser.add_argument("recording_name", help="name of the recording")
+
+    # metadata command
+    metadata_parser = subparsers.add_parser(
+        "metadata", help="(re)generate metadata file for a local recording"
+    )
+    metadata_parser.add_argument(
+        "recording_path_local", help="path to the local recording"
+    )
+
     return parser
 
 
-def add_recording(db, recording_path, metadata_file_name):
-    if not os.path.exists(recording_path):
-        print(
-            "Recording does not exist in recordings storage. First upload recording before adding to database."
-        )
-        exit(0)
+def add_or_update_recording(db, recording_path, metadata_file_name, add=True):
+    if add:
+        if not os.path.exists(recording_path):
+            print(
+                "Recording does not exist in recordings storage. First upload recording before adding to database."
+            )
+            exit(0)
 
-    exists_recording = db.contains_record("name", os.path.basename(recording_path))
-    exists_metadata_file = os.path.exists(
-        os.path.join(os.path.dirname(recording_path), metadata_file_name)
-    )
+        exists_recording = db.contains_record("name", os.path.basename(recording_path))
 
-    if exists_recording:
-        if not click.confirm(
-            "Recording already exists in database. Do you want to override it?",
-            default=True,
-        ):
-            print("Operation cancelled.")
-            return
+        if exists_recording:
+            if not click.confirm(
+                "Recording already exists in database. Do you want to override it?",
+                default=True,
+            ):
+                print("Operation cancelled.")
+                return
 
+    metadata_file = os.path.join(recording_path, metadata_file_name)
+    exists_metadata_file = os.path.exists(metadata_file)
+
+    use_existing_metadata = False
     if exists_metadata_file:
-        regenerate_metadata = click.confirm(
-            "Metadata file already exists. Do you want to regenerate it?", default=True
+        use_existing_metadata = not click.confirm(
+            "Metadata file already exists. Do you want to regenerate the metadata instead of using it from the file?",
+            default=True,
         )
 
     bagman_utils.add_recording(
         db,
         recording_path,
         metadata_file_name=metadata_file_name,
-        regenerate_metadata=regenerate_metadata,
+        use_existing_metadata=use_existing_metadata,
         override_db=True,
         store_metadata_file=True,
     )
@@ -148,18 +168,20 @@ def main():
                 verbose=True,
             )
         except Exception as e:
-            print(f"upload failed: {str(e)}")
+            print(f"Upload failed: {str(e)}")
             exit(0)
 
         if args.add:
             recording_path = os.path.join(config["recordings_storage"], recording_name)
-            add_recording(db, recording_path)
+            add_or_update_recording(db, recording_path, config["metadata_file"], True)
 
     elif args.command == "add":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_recording(
-            db, recording_path, metadata_file_name=config["metadata_file_name"]
-        )
+        add_or_update_recording(db, recording_path, config["metadata_file"], True)
+
+    elif args.command == "update":
+        recording_path = os.path.join(config["recordings_storage"], args.recording_name)
+        add_or_update_recording(db, recording_path, config["metadata_file"], False)
 
     elif args.command == "delete":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
@@ -192,9 +214,23 @@ def main():
         exists_recording = db.contains_record("name", args.recording_name)
 
         print(
-            f"recording exists in storage: {'yes' if exists_recording_storage else 'no'}"
+            f"Recording exists in storage: {'yes' if exists_recording_storage else 'no'}"
         )
-        print(f"recording exists in database: {'yes' if exists_recording else 'no'}")
+        print(f"Recording exists in database: {'yes' if exists_recording else 'no'}")
+
+    elif args.command == "metadata":
+        if not os.path.exists(args.recording_path_local):
+            print("Recording not found")
+            exit(0)
+
+        # generate metadata (merge with existing and store to file)
+        print("Generating metadata...")
+        _ = bagman_utils.generate_metadata(
+            args.recording_path_local,
+            metadata_file_name=config["metadata_file"],
+            merge_existing=True,
+            store_file=True,
+        )
 
 
 if __name__ == "__main__":

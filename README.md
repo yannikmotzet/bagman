@@ -53,7 +53,7 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
     docker-compose up -d
     ```
 
-4. Open Dashboard in browser: [localhost:8051](http://localhost:8051/)
+4. Open Dashboard in browser: [localhost:8502](http://localhost:8502/)
 
 ## Run CLI
 
@@ -74,12 +74,14 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
     bagman CLI
 
     positional arguments:
-      {upload,add,delete,remove,exist}
-        upload              upload a recording to storage (optional: add to database)
-        add                 add a recording to database
+      {upload,add,update,delete,remove,exist,metadata}
+        upload              upload local recording to storage (optional: add to database)
+        add                 add a recording to database or update existing one
+        update              update an existing recording in database
         delete              delete a recording from storage (optional: remove from database)
         remove              remove a recording from database
         exist               check if recording exists in storage and database
+        metadata            (re)generate metadata file for a local recording
 
     options:
       -h, --help            show this help message and exit

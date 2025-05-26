@@ -102,11 +102,39 @@ def check_db_integrity(database, columns):
     pass
 
 
+def generate_metadata(
+    recording_path, metadata_file_name, merge_existing=True, store_file=True
+):
+    metadata_file = os.path.join(recording_path, metadata_file_name)
+
+    # generate metadata
+    rec_metadata = mcap_utils.get_rec_info(recording_path)
+
+    # merge with existing file
+    if merge_existing and os.path.exists(metadata_file):
+        try:
+            rec_metadata_old = load_yaml_file(metadata_file)
+        except Exception as e:
+            print(str(e))
+            return
+        rec_metadata_old.update(rec_metadata)
+        rec_metadata = rec_metadata_old
+
+    if store_file:
+        # TODO backup old file (add feature to save_yaml_file())
+        try:
+            save_yaml_file(rec_metadata, metadata_file)
+        except Exception as e:
+            print(str(e))
+
+    return rec_metadata
+
+
 def add_recording(
     database,
     recording_path,
     metadata_file_name="rec_metadata.yaml",
-    regenerate_metadata=True,
+    use_existing_metadata=True,
     override_db=True,
     sort_by="start_time",
     store_metadata_file=True,
@@ -116,7 +144,7 @@ def add_recording(
     Args:
         recording_path (str): The path to the recording file.
         database (BagmanDB): An instance of the BagmanDB class.
-        regenerate_metadata (bool, optional): If True, the metadata will be regenerated. Defaults to True.
+        use_existing_metadata (bool, optional): If True, the metadata existing metadata will be used if existing. Defaults to False.
         override_db (bool, optional): If True, existing records in db with the same path will be updated. Defaults to True.
         sort_by (str, optional): The field by which to sort the database records. Defaults to "start_time".
         store_metadata_file (bool, optional): If True, the recording metadata will be stored in a YAML file at the recording path. Defaults to True.
@@ -125,31 +153,33 @@ def add_recording(
     Returns:
         None
     """
-    metadata_file = os.path.join(recording_path, metadata_file_name)
+    metadata_file_path = os.path.join(recording_path, metadata_file_name)
 
     # use existing metadata file
-    if not regenerate_metadata and os.path.exists(metadata_file):
+    if use_existing_metadata and os.path.exists(metadata_file_path):
         try:
-            rec_metadata = load_yaml_file(metadata_file)
+            rec_metadata = load_yaml_file(metadata_file_path)
         except Exception as e:
             print(str(e))
 
     # generate new metadata
     else:
-        rec_metadata = mcap_utils.get_rec_info(recording_path)
+        rec_metadata = generate_metadata(
+            recording_path,
+            metadata_file_name,
+            merge_existing=True,
+            store_file=store_metadata_file,
+        )
 
-        # update existing metadata file
-        if os.path.exists(metadata_file):
-            rec_metadata_old = load_yaml_file(metadata_file)
-            rec_metadata_old.update(rec_metadata)
-            rec_metadata = rec_metadata_old
-
-        if store_metadata_file:
-            # TODO backup old file
-            try:
-                save_yaml_file(rec_metadata, metadata_file)
-            except Exception as e:
-                print(str(e))
+    # ensure that recording path in metadata is storage path and not local path
+    if "path" in rec_metadata.keys():
+        if rec_metadata["path"] != recording_path:
+            rec_metadata["path"] = recording_path
+            if store_metadata_file:
+                try:
+                    save_yaml_file(rec_metadata, metadata_file_path)
+                except Exception as e:
+                    print(str(e))
 
     time_added = time.time()
 
