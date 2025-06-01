@@ -20,6 +20,6 @@ dash_cols_no_filter: ['name', 'path', 'description'] # columns which cannot be f
 dash_cols_datetime: ['start_time', 'end_time', 'time_added', 'time_modified'] # columns which are of type datetime
 dash_cols_timedelta: ['duration'] # columns which are of type timedelta
 dash_max_categories: 10 # max unique values for a column to apply categorial filter
-dash_upload_files:  # list with allowed file types for upload, leave empty for all
-# dash_upload_files: ['mcap', 'json', 'yaml', 'txt'] # list with allowed file types for upload, leave empty for all
+dash_upload_files: #['mcap', 'json', 'yaml', 'txt']  list with allowed file types for upload, leave empty for all
 dash_allow_path_link: False # allow to open link of path in new tab (e.g. for links starting with ftp://)
+# dash_timezone: UTC # specify the timezone to convert datetime columns to (e.g., UTC, Europe/Zurich, America/Los_Angeles). Leave commented to use the system's local timezone.

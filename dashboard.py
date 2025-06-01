@@ -4,7 +4,8 @@ import os
 import subprocess
 import sys
 import zipfile
-from datetime import timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -51,9 +52,24 @@ def load_data(_database, check_integrity=True):
     df = df.sort_values(by="start_time", ascending=False)
 
     # convert datetime and datetime columns
+    timezone = datetime.now().astimezone().tzinfo
+    if "dash_timezone" in config:
+        try:
+            timezone = ZoneInfo(config["dash_timezone"])
+        except Exception:
+            st.warning(
+                f"Invalid timezone in config: {config['dash_timezone']}. "
+                f"Using system timezone instead: {timezone}."
+            )
+
     for col in config["dash_cols_datetime"]:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], unit="s", errors="coerce")
+            df[col] = (
+                pd.to_datetime(df[col], unit="s", errors="coerce")
+                .dt.tz_localize("UTC")
+                .dt.tz_convert(timezone)
+                .dt.tz_localize(None)
+            )
     for col in config["dash_cols_timedelta"]:
         if col in df.columns:
             df[col] = pd.to_timedelta(df[col], unit="s", errors="coerce")
