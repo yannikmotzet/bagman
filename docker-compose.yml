@@ -7,5 +7,6 @@ services:
       - "${DASHBOARD_PORT}:${DASHBOARD_PORT}"
     volumes:
       - ${RECORDINGS_STORAGE}:${RECORDINGS_STORAGE}
+      - /etc/localtime:/etc/localtime:ro
     environment:
       - DASHBOARD_PORT=${DASHBOARD_PORT}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import sys
 
 import click
 
@@ -79,14 +80,14 @@ def arg_parser():
 
 
 def add_or_update_recording(db, recording_path, metadata_file_name, add=True):
+    exists_recording = db.contains_record("name", os.path.basename(recording_path))
+
     if add:
         if not os.path.exists(recording_path):
             print(
                 "Recording does not exist in recordings storage. First upload recording before adding to database."
             )
-            exit(0)
-
-        exists_recording = db.contains_record("name", os.path.basename(recording_path))
+            sys.exit(0)
 
         if exists_recording:
             if not click.confirm(
@@ -95,6 +96,12 @@ def add_or_update_recording(db, recording_path, metadata_file_name, add=True):
             ):
                 print("Operation cancelled.")
                 return
+    else:
+        if not exists_recording:
+            print(
+                "Recording does not exist in database. Use 'add' command to add it first."
+            )
+            sys.exit(0)
 
     metadata_file = os.path.join(recording_path, metadata_file_name)
     exists_metadata_file = os.path.exists(metadata_file)
@@ -129,7 +136,7 @@ def remove_recording(db, recording_name):
         default=False,
     ):
         print("Operation cancelled.")
-        exit(0)
+        sys.exit(0)
 
     db.remove_record("name", recording_name)
 
@@ -139,12 +146,12 @@ def main():
 
     if not args.command:
         arg_parser().print_help()
-        exit(0)
+        sys.exit(0)
 
     config_file = args.config
     if not os.path.exists(config_file):
         print(f"Config file {config_file} does not exist.")
-        exit(0)
+        sys.exit(0)
 
     config = bagman_utils.load_config(config_file)
     db = db_utils.BagmanDB(config["database_path"])
@@ -158,7 +165,7 @@ def main():
                 default=True,
             ):
                 print("Operation cancelled.")
-                exit(0)
+                sys.exit(0)
 
         try:
             bagman_utils.upload_recording(
@@ -169,7 +176,7 @@ def main():
             )
         except Exception as e:
             print(f"Upload failed: {str(e)}")
-            exit(0)
+            sys.exit(0)
 
         if args.add:
             recording_path = os.path.join(config["recordings_storage"], recording_name)
@@ -221,7 +228,7 @@ def main():
     elif args.command == "metadata":
         if not os.path.exists(args.recording_path_local):
             print("Recording not found")
-            exit(0)
+            sys.exit(0)
 
         # generate metadata (merge with existing and store to file)
         print("Generating metadata...")
