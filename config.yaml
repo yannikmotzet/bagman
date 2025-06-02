@@ -1,6 +1,7 @@
 # common settings
 recordings_storage: /data/recordings
-database_path: resources/recordings_example.json
+database_type: json # type of database, can be json (TinyDB), mongodb, elasticsearch
+database_uri: resources/recordings_example.json
 resources_folder: resources # folder with resources like map.html, video, etc. relative to recordings_storage
 
 # database settings

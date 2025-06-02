@@ -134,7 +134,7 @@ def add_recording(
     database,
     recording_path,
     metadata_file_name="rec_metadata.yaml",
-    use_existing_metadata=True,
+    use_existing_metadata=False,
     override_db=True,
     sort_by="start_time",
     store_metadata_file=True,
@@ -144,7 +144,7 @@ def add_recording(
     Args:
         recording_path (str): The path to the recording file.
         database (BagmanDB): An instance of the BagmanDB class.
-        use_existing_metadata (bool, optional): If True, the metadata existing metadata will be used if existing. Defaults to False.
+        use_existing_metadata (bool, optional): If True, the existing metadata will be used. Defaults to False.
         override_db (bool, optional): If True, existing records in db with the same path will be updated. Defaults to True.
         sort_by (str, optional): The field by which to sort the database records. Defaults to "start_time".
         store_metadata_file (bool, optional): If True, the recording metadata will be stored in a YAML file at the recording path. Defaults to True.
