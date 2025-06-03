@@ -1,29 +1,55 @@
 import os
+import re
 import shutil
 import time
 from math import atan2, cos, radians, sin, sqrt
 
 import cv2
 import yaml
+from dotenv import load_dotenv
 from scipy.signal import medfilt
 
 from bagman.utils import mcap_utils, plot_utils
 
 
+def replace_env_vars(value):
+    """
+    Recursively replace ${VAR} in strings with environment variables.
+    If the env variable is not found, leave ${VAR} as-is.
+    """
+    pattern = re.compile(r"\$\{([^}]+)\}")
+
+    def replacer(match):
+        var_name = match.group(1)
+        return os.environ.get(var_name, match.group(0))  # fallback to ${VAR}
+
+    if isinstance(value, str):
+        return pattern.sub(replacer, value)
+    elif isinstance(value, dict):
+        return {k: replace_env_vars(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [replace_env_vars(v) for v in value]
+    else:
+        return value
+
+
 def load_config(file_path="config.yaml"):
     """
-    Load configuration from a YAML file.
+    Load a YAML config file, replacing ${ENV_VAR} with actual env values.
+    Leaves the placeholders if env vars are not set.
     Args:
         file_path (str): The path to the YAML configuration file. Defaults to "config.yaml".
     Returns:
         dict: The configuration data loaded from the YAML file.
-    Raises:
-        FileNotFoundError: If the specified file does not exist.
-        yaml.YAMLError: If there is an error parsing the YAML file.
     """
 
+    # load environment variables from .env file if it exists
+    load_dotenv()
+
     with open(file_path, "r") as file:
-        return yaml.safe_load(file)
+        raw_config = yaml.safe_load(file)
+
+    return replace_env_vars(raw_config)
 
 
 def upload_recording(path, recordings_path, move=False, verbose=True):

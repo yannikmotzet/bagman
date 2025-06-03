@@ -1,7 +1,7 @@
 # common settings
 recordings_storage: /data/recordings
 database_type: json # type of database, can be json (TinyDB), mongodb, elasticsearch
-database_uri: resources/recordings_example.json
+database_uri: resources/recordings_example.json # instead of hardcoding a password/token in the URI, use ${ENV_VAR_NAME} and store ENV_VAR_NAME=value in a .env file
 resources_folder: resources # folder with resources like map.html, video, etc. relative to recordings_storage
 
 # database settings
