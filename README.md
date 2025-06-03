@@ -18,7 +18,7 @@
 ## Features
 
 - **CLI**
-- **Database:** [TinyDB](https://github.com/msiemens/tinydb)
+- **NoSQL Database:** support for [MongoDB](https://github.com/mongodb/mongo), [Elaseticsearch](https://github.com/elastic/elasticsearch) and [TinyDB](https://github.com/msiemens/tinydb) (.json file)
 - **Dashboard:** [Streamlit](https://github.com/streamlit/streamlit)
 - **Pipeline (TODO):** [Prefect](https://github.com/PrefectHQ/prefect)
 
