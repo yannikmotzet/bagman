@@ -40,8 +40,8 @@ def load_data(_database, check_integrity=True):
 
     if check_integrity:
         # check database for integrity
-        if not set(config["db_columns"]).issubset(set(columns)):
-            missing_columns = set(config["db_columns"]) - set(columns)
+        if not set(config["database_columns"]).issubset(set(columns)):
+            missing_columns = set(config["database_columns"]) - set(columns)
             missing_columns_str = ", ".join(f"`{col}`" for col in missing_columns)
             with st.expander("⚠️ database is corrupt"):
                 st.write(
