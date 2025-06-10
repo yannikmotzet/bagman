@@ -155,7 +155,9 @@ def main():
         sys.exit(0)
 
     config = bagman_utils.load_config(config_file)
-    db = BagmanDB(config["database_type"], config["database_uri"])
+    db = BagmanDB(
+        config["database_type"], config["database_uri"], config["database_name"]
+    )
 
     if args.command == "upload":
         recording_name = os.path.basename(os.path.normpath(args.recording_path_local))

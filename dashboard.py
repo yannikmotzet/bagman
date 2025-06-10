@@ -277,15 +277,22 @@ def st_page_recordings():
     st.header("Recordings")
 
     try:
-        # the abspath check is required to use the recordings_example.json wich has a relative path
-        if config["database_type"] == "json":
-            database_path = config["database_uri"]
-            if not os.path.isabs(database_path):
-                database_path = os.path.join(PROJECT_ROOT, database_path)
-            db = BagmanDB(config["database_type"], database_path)
-        else:
-            db = BagmanDB(config["database_type"], config["database_uri"])
-        data = load_data(db)
+        with st.spinner("Connecting to database..."):
+            # the abspath check is required to use the recordings_example.json which has a relative path
+            if config["database_type"] == "json":
+                database_path = config["database_uri"]
+                if not os.path.isabs(database_path):
+                    database_path = os.path.join(PROJECT_ROOT, database_path)
+                db = BagmanDB(
+                    config["database_type"], database_path, config["database_name"]
+                )
+            else:
+                db = BagmanDB(
+                    config["database_type"],
+                    config["database_uri"],
+                    config["database_name"],
+                )
+            data = load_data(db)
     except Exception as e:
         st.error(f"database error: {e}")
         return

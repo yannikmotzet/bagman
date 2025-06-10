@@ -132,9 +132,10 @@ DATABASE_USER=your_username
 DATABASE_PASSWORD=your_password
 ```
 
-For API key authentication:
+For API key authentication, use a Base64-encoded key:
+
 ```env
-DATABASE_TOKEN=your_api_key
+DATABASE_TOKEN=your_base64_encoded_api_key
 ```
 > **Note:** Use either username/password or API key, but not both.
 
@@ -158,6 +159,7 @@ DATABASE_PASSWORD=your_password
 ### Notes
 - Ensure the `.env` file is located in the same directory as your application.
 - The application will automatically load the environment variables from the `.env` file during runtime.
+- Using username and password inside the database URL is not recommended for security reasons.
 - For more details, refer to the documentation of the respective database.
 
 

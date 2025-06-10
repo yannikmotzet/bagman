@@ -19,17 +19,14 @@ class MongoDBBackend(AbstractBagmanDB):
             self.client = MongoClient(uri)
 
         try:
-            # Attempt to connect to the database
+            # attempt to connect to the database
             self.client.admin.command("ping")
         except Exception as e:
-            raise ConnectionError("Unable to connect to the MongoDB server.") from e
+            if "Authentication failed" in str(e):
+                raise PermissionError("Authentication failed.") from e
+            raise ConnectionError("MongoDB server not reachable.") from e
 
         self.db = self.client[db_name]
-
-        # Check if the database can be accessed
-        if db_name not in self.client.list_database_names():
-            raise PermissionError(f"Access to the database '{db_name}' is denied.")
-
         self.collection = self.db[collection]
 
     def get_all_records(self):

@@ -6,7 +6,7 @@ class BagmanDB:
     Unified public interface to the Bagman database, regardless of backend.
     """
 
-    def __init__(self, type, uri, name):
+    def __init__(self, type, uri, name="bagman"):
         """
         Args:
             config (dict): Must contain:
