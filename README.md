@@ -1,41 +1,52 @@
+<p align="left">
+    <img src="resources/bagman_logo.png" alt="Bagman logo" width="100"/>
+</p>
+
 # Bagman
-<img src="resources/bagman_logo.png" alt="Bagman logo" width="100"/>
 
 **Bagman** is a ROS 2 **bag** (.mcap) **man**agement tool.
 
-![Bagman Screenshot](resources/bagman_screenshot.png)
+<p align="center">
+    <img src="resources/bagman_screenshot.png" alt="Bagman screenshot" width="800"/>
+</p>
 
 <details>
     <summary>Table of Contents</summary>
 
 - [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
+- [Getting started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Run Dashboard](#run-dashboard)
+  - [Run CLI](#run-cli)
+  - [Database Integration](#database-integration)
 - [Contributing](#contributing)
 
 </details>
 
+
 ## Features
 
-- **CLI**
-- **NoSQL Database:** support for [MongoDB](https://github.com/mongodb/mongo), [Elaseticsearch](https://github.com/elastic/elasticsearch) and [TinyDB](https://github.com/msiemens/tinydb) (.json file)
-- **Dashboard:** [Streamlit](https://github.com/streamlit/streamlit)
-- **Pipeline (TODO):** [Prefect](https://github.com/PrefectHQ/prefect)
+- **CLI Tool:** includes administrative commands for managing recordings
+- **NoSQL Database Support:** compatible with [MongoDB](https://github.com/mongodb/mongo), [Elasticsearch](https://github.com/elastic/elasticsearch), and [TinyDB](https://github.com/msiemens/tinydb)
+- **[Streamlit](https://github.com/streamlit/streamlit) Dashboard:** interactively search for recordings and explore their content
+- **[Prefect](https://github.com/PrefectHQ/prefect) Pipeline (in development):** define and execute workflows by selecting tasks and applying them to recordings
 
-## Prerequisites
+
+
+## Getting started
+
+### Prerequisites
 
 - Docker (`apt install docker.io`)
 - Docker Compose (`apt install docker-compose`)
 - yq (`snap install yq`)
-
-## Installation
 
 Clone the repository:
 ```sh
 git clone https://github.com/yannikmotzet/bagman.git && cd bagman
 ```
 
-## Run Dashboard
+### Run Dashboard
 
 1. Build the Docker image:
     ```sh
@@ -55,15 +66,13 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
 
 4. Open Dashboard in browser: [localhost:8502](http://localhost:8502/)
 
-## Run CLI
+### Run CLI
 
 1. Install the package:
     ```sh
      pip install .
      ```
      > **Note:** For development use `pip install -e .` which creates a symbolic link to the source code.
-
-## Run the CLI
 
 2. Execute the CLI:
     ```sh
@@ -88,6 +97,68 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
       -c CONFIG, --config CONFIG
                             path to config file, default: config.yaml in current directory
     ```
+
+### Database Integration
+
+Currently, the following databases are supported:
+- **MongoDB**
+- **Elasticsearch**
+- **TinyDB** (based on .json file)
+
+Database integration is managed through the `config.yaml` file and environment variables. The `database_uri` field specifies the connection details for the selected database, while authentication credentials can be provided via a `.env` file.
+
+#### TinyDB
+For TinyDB, set the `database_uri` field in `config.yaml` to the path of the `.json` file:
+```yaml
+database_uri: path/to/database.json
+```
+
+#### Elasticsearch
+For Elasticsearch, set the `database_uri` field in `config.yaml` to the URL of the database:
+```yaml
+database_uri: http://localhost:9200
+```
+
+Additionally, specify the `database_tabl` field in `config.yaml` to define the Elasticsearch index name:
+```yaml
+database_name: your_index_name
+```
+
+If authentication is required, add the credentials to a `.env` file:
+
+For username/password authentication:
+```env
+DATABASE_USER=your_username
+DATABASE_PASSWORD=your_password
+```
+
+For API key authentication:
+```env
+DATABASE_TOKEN=your_api_key
+```
+> **Note:** Use either username/password or API key, but not both.
+
+#### MongoDB
+For MongoDB, set the `database_uri` field in `config.yaml` to the connection URL:
+```yaml
+database_uri: mongodb://localhost:27017
+```
+
+Additionally, specify the `database_name` field in `config.yaml` to define both the MongoDB database name and the collection name:
+```yaml
+database_name: your_collection_name
+```
+
+If authentication is required, add the credentials to a `.env` file:
+```env
+DATABASE_USER=your_username
+DATABASE_PASSWORD=your_password
+```
+
+### Notes
+- Ensure the `.env` file is located in the same directory as your application.
+- The application will automatically load the environment variables from the `.env` file during runtime.
+- For more details, refer to the documentation of the respective database.
 
 
 ## Contributing

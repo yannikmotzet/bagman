@@ -4,12 +4,12 @@ from bagman.utils.db.tinydb_backend import TinyDBBackend
 
 
 # type based loader
-def get_db(type, uri, table="bagman"):
+def get_db(type, uri, name="bagman"):
     if type == "json":
         return TinyDBBackend(uri)
     elif type == "mongodb":
-        return MongoDBBackend(uri, collection=table)
+        return MongoDBBackend(uri, db_name=name, collection=name)
     elif type == "elasticsearch":
-        return ElasticsearchBackend(uri, index=table)
+        return ElasticsearchBackend(uri, index=name)
     else:
         raise ValueError("unsupported backend type")

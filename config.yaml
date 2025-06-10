@@ -5,10 +5,7 @@ resources_folder: resources # relative path from recordings_storage to folder wi
 # database settings
 database_type: json # type of database, can be json (TinyDB), mongodb, elasticsearch
 database_uri: resources/recordings_example.json # URL for elasticsearch, mongodb or path to .json for TinyDB
-database_table: bagman # used as collection in mongodb or index in elasticsearch
-# database_user: ${DATABASE_USER} # store DATABASE_USER=value in .env file
-# database_password: ${DATABASE_PASSWORD} # store DATABASE_PASSWORD=value in .env file
-# database_token: ${DATABASE_TOKEN} # token for elasticsearch database
+database_name: bagman # used as db_name/collection in mongodb or index in elasticsearch
 database_columns: ['name', 'path', 'start_time', 'end_time', 'duration', 'description', 'operator', 'vehicle', 'location', 'size', 'files', 'topics', 'time_added', 'time_modified'] # columns which are mandatory in database
 
 # recorder settings

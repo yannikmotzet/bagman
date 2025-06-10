@@ -1,12 +1,35 @@
+import os
+
+from dotenv import load_dotenv
 from pymongo import MongoClient
 
 from bagman.utils.db.db_interface import AbstractBagmanDB
 
 
 class MongoDBBackend(AbstractBagmanDB):
-    def __init__(self, uri, db_name="bagman", collection="records"):
-        self.client = MongoClient(uri)
+    def __init__(self, uri, db_name="bagman", collection="bagman"):
+        load_dotenv()
+        if "DATABASE_USER" in os.environ and "DATABASE_PASSWORD" in os.environ:
+            self.client = MongoClient(
+                uri,
+                username=os.environ["DATABASE_USER"],
+                password=os.environ["DATABASE_PASSWORD"],
+            )
+        else:
+            self.client = MongoClient(uri)
+
+        try:
+            # Attempt to connect to the database
+            self.client.admin.command("ping")
+        except Exception as e:
+            raise ConnectionError("Unable to connect to the MongoDB server.") from e
+
         self.db = self.client[db_name]
+
+        # Check if the database can be accessed
+        if db_name not in self.client.list_database_names():
+            raise PermissionError(f"Access to the database '{db_name}' is denied.")
+
         self.collection = self.db[collection]
 
     def get_all_records(self):

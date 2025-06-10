@@ -1,5 +1,6 @@
 import os
 
+from dotenv import load_dotenv
 from elasticsearch import Elasticsearch, exceptions
 
 from bagman.utils.db.db_interface import AbstractBagmanDB
@@ -11,6 +12,7 @@ class ElasticsearchBackend(AbstractBagmanDB):
 
         # set up authentication
         try:
+            load_dotenv()
             if "DATABASE_TOKEN" in os.environ:
                 self.es = Elasticsearch(url, api_key=os.environ["DATABASE_TOKEN"])
             elif "DATABASE_USER" in os.environ and "DATABASE_PASSWORD" in os.environ:
