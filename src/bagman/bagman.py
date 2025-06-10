@@ -5,7 +5,8 @@ import sys
 
 import click
 
-from bagman.utils import bagman_utils, db_utils
+from bagman.utils import bagman_utils
+from bagman.utils.db import BagmanDB
 
 
 def arg_parser():
@@ -154,7 +155,9 @@ def main():
         sys.exit(0)
 
     config = bagman_utils.load_config(config_file)
-    db = db_utils.BagmanDB(config["database_path"])
+    db = BagmanDB(
+        config["database_type"], config["database_uri"], config["database_name"]
+    )
 
     if args.command == "upload":
         recording_name = os.path.basename(os.path.normpath(args.recording_path_local))
