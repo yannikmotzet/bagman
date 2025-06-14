@@ -8,6 +8,15 @@ class AbstractBagmanDB(ABC):
     """
 
     @abstractmethod
+    def is_connected(self):
+        """
+        Check if there is a successful connection to the database.
+        Returns:
+            bool: True if the connection is successful, False otherwise.
+        """
+        pass
+
+    @abstractmethod
     def get_all_records(self):
         """
         Get all records from the database.

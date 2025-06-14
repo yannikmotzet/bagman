@@ -18,6 +18,12 @@ class MongoDBBackend(AbstractBagmanDB):
         else:
             self.client = MongoClient(uri)
 
+        self.is_connected()
+
+        self.db = self.client[db_name]
+        self.collection = self.db[collection]
+
+    def is_connected(self):
         try:
             # attempt to connect to the database
             self.client.admin.command("ping")
@@ -25,9 +31,6 @@ class MongoDBBackend(AbstractBagmanDB):
             if "Authentication failed" in str(e):
                 raise PermissionError("Authentication failed.") from e
             raise ConnectionError("MongoDB server not reachable.") from e
-
-        self.db = self.client[db_name]
-        self.collection = self.db[collection]
 
     def get_all_records(self):
         return list(self.collection.find({}, {"_id": 0}))

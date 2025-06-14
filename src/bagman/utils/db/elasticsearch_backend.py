@@ -28,14 +28,7 @@ class ElasticsearchBackend(AbstractBagmanDB):
         except Exception as e:
             raise ConnectionError(f"Failed to initialize Elasticsearch client: {e}")
 
-        # check if the cluster is reachable
-        try:
-            if not self.es.ping():
-                raise ConnectionError("Elasticsearch cluster is not reachable.")
-        except exceptions.AuthenticationException as e:
-            raise PermissionError(f"Authentication failed: {e}")
-        except Exception as e:
-            raise ConnectionError(f"Ping failed: {e}")
+        self.is_connected()
 
         # ensure index exists
         try:
@@ -47,6 +40,16 @@ class ElasticsearchBackend(AbstractBagmanDB):
             )
         except Exception as e:
             raise RuntimeError(f"Failed to check or create index '{self.index}': {e}")
+
+    def is_connected(self):
+        # check if the cluster is reachable
+        try:
+            if not self.es.ping():
+                raise ConnectionError("Elasticsearch cluster is not reachable.")
+        except exceptions.AuthenticationException as e:
+            raise PermissionError(f"Authentication failed: {e}")
+        except Exception as e:
+            raise ConnectionError(f"Ping failed: {e}")
 
     def get_all_records(self):
         resp = self.es.search(

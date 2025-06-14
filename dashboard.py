@@ -293,8 +293,8 @@ def st_page_recordings():
                     config["database_name"],
                 )
             data = load_data(db)
-    except Exception as e:
-        st.error(f"database error: {e}")
+    except Exception:
+        st.error("⚠️ no connection to database")
         return
 
     num_total_data = len(data)

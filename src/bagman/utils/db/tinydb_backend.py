@@ -7,15 +7,19 @@ from bagman.utils.db.db_interface import AbstractBagmanDB
 
 class TinyDBBackend(AbstractBagmanDB):
     def __init__(self, database_path):
-        if not os.path.exists(database_path):
-            raise FileNotFoundError(
-                f"The database file at {database_path} does not exist."
-            )
+        self.database_path = database_path
+        self.is_connected()
         self.db = TinyDB(database_path)
 
     def __del__(self):
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
+
+    def is_connected(self):
+        if not os.path.exists(self.database_path):
+            raise FileNotFoundError(
+                f"The database file at {self.database_path} does not exist."
+            )
 
     def get_all_records(self):
         return self.db.all()
