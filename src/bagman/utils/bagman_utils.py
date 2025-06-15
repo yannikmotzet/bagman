@@ -223,12 +223,13 @@ def add_recording(
 
     # sort the database (default sort by start_time, oldest on top)
     # TODO insert at correct position instead of sorting the whole database
-    all_records = database.get_all_records()
-    sorted_records = sorted(
-        all_records, key=lambda x: x.get(sort_by, ""), reverse=False
-    )
-    database.truncate_database()  # clear the database
-    database.insert_multiple_records(sorted_records)  # insert sorted records
+    if sort_by and sort_by != "" and sort_by in rec_metadata.keys():
+        all_records = database.get_all_records()
+        sorted_records = sorted(
+            all_records, key=lambda x: x.get(sort_by, ""), reverse=False
+        )
+        database.truncate_database()  # clear the database
+        database.insert_multiple_records(sorted_records)  # insert sorted records
 
 
 def generate_map(recording_name, config="config.yaml", topic=None, speed=True):

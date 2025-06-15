@@ -86,7 +86,7 @@ def arg_parser():
     return parser
 
 
-def add_or_update_recording(db, recording_path, metadata_file_name, add=True):
+def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add=True):
     exists_recording = db.contains_record("name", os.path.basename(recording_path))
 
     if add:
@@ -126,6 +126,7 @@ def add_or_update_recording(db, recording_path, metadata_file_name, add=True):
         metadata_file_name=metadata_file_name,
         use_existing_metadata=use_existing_metadata,
         override_db=True,
+        sort_by=sort_by,
         store_metadata_file=True,
     )
 
@@ -196,15 +197,33 @@ def main():
 
         if args.add:
             recording_path = os.path.join(config["recordings_storage"], recording_name)
-            add_or_update_recording(db, recording_path, config["metadata_file"], True)
+            add_or_update_recording(
+                db,
+                recording_path,
+                config["metadata_file"],
+                config["database_sort_by"],
+                True,
+            )
 
     elif args.command == "add":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_or_update_recording(db, recording_path, config["metadata_file"], True)
+        add_or_update_recording(
+            db,
+            recording_path,
+            config["metadata_file"],
+            config["database_sort_by"],
+            True,
+        )
 
     elif args.command == "update":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_or_update_recording(db, recording_path, config["metadata_file"], False)
+        add_or_update_recording(
+            db,
+            recording_path,
+            config["metadata_file"],
+            config["database_sort_by"],
+            False,
+        )
 
     elif args.command == "delete":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)

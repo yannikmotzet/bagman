@@ -502,7 +502,10 @@ def st_page_upload():
         # trigger add to database
         db = BagmanDB(config["database_type"], config["database_uri"])
         bagman_utils.add_recording(
-            db, recording_path, metadata_file_name=config["metadata_file"]
+            db,
+            recording_path,
+            metadata_file_name=config["metadata_file"],
+            sort_by=config["database_sort_by"],
         )
         del db
 

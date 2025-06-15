@@ -7,6 +7,7 @@ database_type: json # type of database, can be json (TinyDB), mongodb, elasticse
 database_uri: resources/recordings_example.json # URL for elasticsearch, mongodb or path to .json for TinyDB
 database_name: bagman # used as db_name/collection in mongodb or index in elasticsearch
 database_columns: ['name', 'path', 'start_time', 'end_time', 'duration', 'description', 'operator', 'vehicle', 'location', 'size', 'files', 'topics', 'time_added', 'time_modified'] # columns which are mandatory in database
+database_sort_by: 'start_time' # column to sort recordings by in the dashboard, leave empty to disable sorting
 
 # recorder settings
 metadata_recorder: ['name', 'description', 'operator', 'vehicle', 'location'] # fields which needs to be set manually since cannot be extracted from .mcap
