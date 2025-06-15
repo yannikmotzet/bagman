@@ -14,7 +14,9 @@ metadata_file: bagman.yaml
 
 # dashboard settings
 dashboard_port: 8502
-dash_title: '🛍️ bagman'
+dash_name: bagman
+dash_icon: '🛍️'
+dash_logo: resources/bagman_logo.png # path to logo file
 dash_cols_mandatory: [] # colums which will always be displayed
 dash_cols_ignore: ['files', 'topics'] # these columns will be deleted from the dataframe
 dash_cols_default: ['start_time', 'name', 'duration', 'description', 'path'] # columns which are displayed by default, others can be selected

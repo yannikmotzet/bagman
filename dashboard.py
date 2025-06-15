@@ -524,8 +524,8 @@ def main():
     )
 
     st.set_page_config(
-        page_title="bagman",
-        page_icon="🛍️",
+        page_title=config["dash_name"],
+        page_icon=config["dash_icon"],
         layout="wide",
         initial_sidebar_state="expanded",
         menu_items={
@@ -536,8 +536,11 @@ def main():
             )
         },
     )
-    st.title(config["dash_title"])
-    st.logo("resources/bagman_logo.png", size="large")
+    st.title(config["dash_icon"] + " " + config["dash_name"])
+
+    if os.path.exists(config["dash_logo"]):
+        st.logo(config["dash_logo"], size="large")
+
     pg.run()
 
 
