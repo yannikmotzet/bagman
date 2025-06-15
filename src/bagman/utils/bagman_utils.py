@@ -1,29 +1,55 @@
 import os
+import re
 import shutil
 import time
 from math import atan2, cos, radians, sin, sqrt
 
 import cv2
 import yaml
+from dotenv import load_dotenv
 from scipy.signal import medfilt
 
 from bagman.utils import mcap_utils, plot_utils
 
 
+def replace_env_vars(value):
+    """
+    Recursively replace ${VAR} in strings with environment variables.
+    If the env variable is not found, leave ${VAR} as-is.
+    """
+    pattern = re.compile(r"\$\{([^}]+)\}")
+
+    def replacer(match):
+        var_name = match.group(1)
+        return os.environ.get(var_name, match.group(0))  # fallback to ${VAR}
+
+    if isinstance(value, str):
+        return pattern.sub(replacer, value)
+    elif isinstance(value, dict):
+        return {k: replace_env_vars(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [replace_env_vars(v) for v in value]
+    else:
+        return value
+
+
 def load_config(file_path="config.yaml"):
     """
-    Load configuration from a YAML file.
+    Load a YAML config file, replacing ${ENV_VAR} with actual env values.
+    Leaves the placeholders if env vars are not set.
     Args:
         file_path (str): The path to the YAML configuration file. Defaults to "config.yaml".
     Returns:
         dict: The configuration data loaded from the YAML file.
-    Raises:
-        FileNotFoundError: If the specified file does not exist.
-        yaml.YAMLError: If there is an error parsing the YAML file.
     """
 
+    # load environment variables from .env file if it exists
+    load_dotenv()
+
     with open(file_path, "r") as file:
-        return yaml.safe_load(file)
+        raw_config = yaml.safe_load(file)
+
+    return replace_env_vars(raw_config)
 
 
 def upload_recording(path, recordings_path, move=False, verbose=True):
@@ -134,7 +160,7 @@ def add_recording(
     database,
     recording_path,
     metadata_file_name="rec_metadata.yaml",
-    use_existing_metadata=True,
+    use_existing_metadata=False,
     override_db=True,
     sort_by="start_time",
     store_metadata_file=True,
@@ -144,7 +170,7 @@ def add_recording(
     Args:
         recording_path (str): The path to the recording file.
         database (BagmanDB): An instance of the BagmanDB class.
-        use_existing_metadata (bool, optional): If True, the metadata existing metadata will be used if existing. Defaults to False.
+        use_existing_metadata (bool, optional): If True, the existing metadata will be used. Defaults to False.
         override_db (bool, optional): If True, existing records in db with the same path will be updated. Defaults to True.
         sort_by (str, optional): The field by which to sort the database records. Defaults to "start_time".
         store_metadata_file (bool, optional): If True, the recording metadata will be stored in a YAML file at the recording path. Defaults to True.
@@ -197,12 +223,13 @@ def add_recording(
 
     # sort the database (default sort by start_time, oldest on top)
     # TODO insert at correct position instead of sorting the whole database
-    all_records = database.get_all_records()
-    sorted_records = sorted(
-        all_records, key=lambda x: x.get(sort_by, ""), reverse=False
-    )
-    database.truncate_database()  # clear the database
-    database.insert_multiple_records(sorted_records)  # insert sorted records
+    if sort_by and sort_by != "" and sort_by in rec_metadata.keys():
+        all_records = database.get_all_records()
+        sorted_records = sorted(
+            all_records, key=lambda x: x.get(sort_by, ""), reverse=False
+        )
+        database.truncate_database()  # clear the database
+        database.insert_multiple_records(sorted_records)  # insert sorted records
 
 
 def generate_map(recording_name, config="config.yaml", topic=None, speed=True):

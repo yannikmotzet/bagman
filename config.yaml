@@ -1,10 +1,13 @@
-# common settings
+# storage settings
 recordings_storage: /data/recordings
-database_path: resources/recordings_example.json
-resources_folder: resources # folder with resources like map.html, video, etc. relative to recordings_storage
+resources_folder: resources # relative path from recordings_storage to folder with resources like map.html, video, etc.
 
 # database settings
-db_columns: ['name', 'path', 'start_time', 'end_time', 'duration', 'description', 'operator', 'vehicle', 'location', 'size', 'files', 'topics', 'time_added', 'time_modified'] # columns which are mandatory in database
+database_type: json # type of database, can be json (TinyDB), mongodb, elasticsearch
+database_uri: resources/recordings_example.json # URL for elasticsearch, mongodb or path to .json for TinyDB
+database_name: bagman # used as db_name/collection in mongodb or index in elasticsearch
+database_columns: ['name', 'path', 'start_time', 'end_time', 'duration', 'description', 'operator', 'vehicle', 'location', 'size', 'files', 'topics', 'time_added', 'time_modified'] # columns which are mandatory in database
+database_sort_by: 'start_time' # column to sort recordings by in the dashboard, leave empty to disable sorting
 
 # recorder settings
 metadata_recorder: ['name', 'description', 'operator', 'vehicle', 'location'] # fields which needs to be set manually since cannot be extracted from .mcap
@@ -12,7 +15,9 @@ metadata_file: bagman.yaml
 
 # dashboard settings
 dashboard_port: 8502
-dash_title: '🛍️ bagman'
+dash_name: bagman
+dash_icon: '🛍️'
+dash_logo: resources/bagman_logo.png # path to logo file
 dash_cols_mandatory: [] # colums which will always be displayed
 dash_cols_ignore: ['files', 'topics'] # these columns will be deleted from the dataframe
 dash_cols_default: ['start_time', 'name', 'duration', 'description', 'path'] # columns which are displayed by default, others can be selected

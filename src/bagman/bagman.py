@@ -4,8 +4,10 @@ import os
 import sys
 
 import click
+from dotenv import load_dotenv
 
-from bagman.utils import bagman_utils, db_utils
+from bagman.utils import bagman_utils
+from bagman.utils.db import BagmanDB
 
 
 def arg_parser():
@@ -68,6 +70,11 @@ def arg_parser():
     )
     exist_parser.add_argument("recording_name", help="name of the recording")
 
+    # connection command
+    subparsers.add_parser(
+        "connection", help="check connection to the storage and database"
+    )
+
     # metadata command
     metadata_parser = subparsers.add_parser(
         "metadata", help="(re)generate metadata file for a local recording"
@@ -79,7 +86,7 @@ def arg_parser():
     return parser
 
 
-def add_or_update_recording(db, recording_path, metadata_file_name, add=True):
+def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add=True):
     exists_recording = db.contains_record("name", os.path.basename(recording_path))
 
     if add:
@@ -119,6 +126,7 @@ def add_or_update_recording(db, recording_path, metadata_file_name, add=True):
         metadata_file_name=metadata_file_name,
         use_existing_metadata=use_existing_metadata,
         override_db=True,
+        sort_by=sort_by,
         store_metadata_file=True,
     )
 
@@ -154,7 +162,16 @@ def main():
         sys.exit(0)
 
     config = bagman_utils.load_config(config_file)
-    db = db_utils.BagmanDB(config["database_path"])
+
+    load_dotenv()
+    db_connected = False
+    try:
+        db = BagmanDB(
+            config["database_type"], config["database_uri"], config["database_name"]
+        )
+        db_connected = True
+    except Exception as e:
+        print(f"Failed to connect to the database: {str(e)}")
 
     if args.command == "upload":
         recording_name = os.path.basename(os.path.normpath(args.recording_path_local))
@@ -180,15 +197,33 @@ def main():
 
         if args.add:
             recording_path = os.path.join(config["recordings_storage"], recording_name)
-            add_or_update_recording(db, recording_path, config["metadata_file"], True)
+            add_or_update_recording(
+                db,
+                recording_path,
+                config["metadata_file"],
+                config["database_sort_by"],
+                True,
+            )
 
     elif args.command == "add":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_or_update_recording(db, recording_path, config["metadata_file"], True)
+        add_or_update_recording(
+            db,
+            recording_path,
+            config["metadata_file"],
+            config["database_sort_by"],
+            True,
+        )
 
     elif args.command == "update":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_or_update_recording(db, recording_path, config["metadata_file"], False)
+        add_or_update_recording(
+            db,
+            recording_path,
+            config["metadata_file"],
+            config["database_sort_by"],
+            False,
+        )
 
     elif args.command == "delete":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
@@ -224,6 +259,29 @@ def main():
             f"Recording exists in storage: {'yes' if exists_recording_storage else 'no'}"
         )
         print(f"Recording exists in database: {'yes' if exists_recording else 'no'}")
+
+    elif args.command == "connection":
+        storage_connected = False
+        database_connected = False
+
+        # check storage connection
+        if os.path.exists(config["recordings_storage"]):
+            storage_connected = True
+
+        # check database connection
+        if db_connected:
+            try:
+                db.is_connected()
+                database_connected = True
+            except Exception:
+                pass
+
+        print(
+            f"storage connection ({config['recordings_storage']}): {'yes' if storage_connected else 'no'}"
+        )
+        print(
+            f"database connection ({config['database_uri']}): {'yes' if database_connected else 'no'}"
+        )
 
     elif args.command == "metadata":
         if not os.path.exists(args.recording_path_local):

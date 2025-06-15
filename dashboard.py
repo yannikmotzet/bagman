@@ -13,12 +13,13 @@ import streamlit as st
 import streamlit.components.v1 as components
 import yaml
 
+from bagman.utils import bagman_utils
+from bagman.utils.db import BagmanDB
+
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.yaml")
 
 sys.path.append(PROJECT_ROOT)
-
-from bagman.utils import bagman_utils, db_utils
 
 
 def get_git_version():
@@ -39,8 +40,8 @@ def load_data(_database, check_integrity=True):
 
     if check_integrity:
         # check database for integrity
-        if not set(config["db_columns"]).issubset(set(columns)):
-            missing_columns = set(config["db_columns"]) - set(columns)
+        if not set(config["database_columns"]).issubset(set(columns)):
+            missing_columns = set(config["database_columns"]) - set(columns)
             missing_columns_str = ", ".join(f"`{col}`" for col in missing_columns)
             with st.expander("⚠️ database is corrupt"):
                 st.write(
@@ -276,16 +277,24 @@ def st_page_recordings():
     st.header("Recordings")
 
     try:
-        database_path = config["database_path"]
-        if not os.path.isabs(database_path):
-            database_path = os.path.join(PROJECT_ROOT, database_path)
-        db = db_utils.BagmanDB(database_path)
-        data = load_data(db)
-    except FileNotFoundError:
-        st.error("Database not found")
-        return
-    except Exception as e:
-        st.error(f"Error reading database: {e}")
+        with st.spinner("Connecting to database..."):
+            # the abspath check is required to use the recordings_example.json which has a relative path
+            if config["database_type"] == "json":
+                database_path = config["database_uri"]
+                if not os.path.isabs(database_path):
+                    database_path = os.path.join(PROJECT_ROOT, database_path)
+                db = BagmanDB(
+                    config["database_type"], database_path, config["database_name"]
+                )
+            else:
+                db = BagmanDB(
+                    config["database_type"],
+                    config["database_uri"],
+                    config["database_name"],
+                )
+            data = load_data(db)
+    except Exception:
+        st.error("⚠️ no connection to database")
         return
 
     num_total_data = len(data)
@@ -448,7 +457,7 @@ def st_page_upload():
     button_label = "Upload"
 
     storage_exists = os.path.exists(recording_path)
-    db = db_utils.BagmanDB(config["database_path"])
+    db = BagmanDB(config["database_type"], config["database_uri"])
     db_exists = db.contains_record("name", recording_name)
     del db
 
@@ -477,7 +486,7 @@ def st_page_upload():
             with open(os.path.join(recording_path, config["metadata_file"]), "w") as f:
                 yaml.dump(st.session_state.metadata, f)
 
-            # check if all files were uploaded correctly
+            # check if all files were uploaded correctly (TODO use checksum instead of file size)
             for file in mcap_files + other_files:
                 uploaded_file_size = len(file.getvalue())
                 stored_file_size = os.path.getsize(
@@ -491,8 +500,13 @@ def st_page_upload():
             st.success("✅ upload successful")
 
         # trigger add to database
-        db = db_utils.BagmanDB(config["database_path"])
-        bagman_utils.add_recording(db, recording_path)
+        db = BagmanDB(config["database_type"], config["database_uri"])
+        bagman_utils.add_recording(
+            db,
+            recording_path,
+            metadata_file_name=config["metadata_file"],
+            sort_by=config["database_sort_by"],
+        )
         del db
 
 
@@ -513,8 +527,8 @@ def main():
     )
 
     st.set_page_config(
-        page_title="bagman",
-        page_icon="🛍️",
+        page_title=config["dash_name"],
+        page_icon=config["dash_icon"],
         layout="wide",
         initial_sidebar_state="expanded",
         menu_items={
@@ -525,8 +539,11 @@ def main():
             )
         },
     )
-    st.title(config["dash_title"])
-    st.logo("resources/bagman_logo.png", size="large")
+    st.title(config["dash_icon"] + " " + config["dash_name"])
+
+    if os.path.exists(config["dash_logo"]):
+        st.logo(config["dash_logo"], size="large")
+
     pg.run()
 
 
