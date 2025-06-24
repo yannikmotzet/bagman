@@ -120,7 +120,7 @@ For Elasticsearch, set the `database_uri` field in `config.yaml` to the URL of t
 database_uri: http://localhost:9200
 ```
 
-Additionally, specify the `database_tabl` field in `config.yaml` to define the Elasticsearch index name:
+Additionally, specify the `database_name` field in `config.yaml` to define the Elasticsearch index name:
 ```yaml
 database_name: your_index_name
 ```
