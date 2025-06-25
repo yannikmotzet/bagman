@@ -86,7 +86,9 @@ def arg_parser():
     return parser
 
 
-def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add=True):
+def add_or_update_recording(
+    db, recording_path, metadata_file_name, sort_by, add=True, use_header_stamp=False
+):
     exists_recording = db.contains_record("name", os.path.basename(recording_path))
 
     if add:
@@ -128,6 +130,7 @@ def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add
         override_db=True,
         sort_by=sort_by,
         store_metadata_file=True,
+        use_header_stamp=use_header_stamp,
     )
 
 
@@ -203,6 +206,7 @@ def main():
                 config["metadata_file"],
                 config["database_sort_by"],
                 True,
+                config["metadata_use_header_stamp"],
             )
 
     elif args.command == "add":
@@ -213,6 +217,7 @@ def main():
             config["metadata_file"],
             config["database_sort_by"],
             True,
+            config["metadata_use_header_stamp"],
         )
 
     elif args.command == "update":
@@ -223,6 +228,7 @@ def main():
             config["metadata_file"],
             config["database_sort_by"],
             False,
+            config["metadata_use_header_stamp"],
         )
 
     elif args.command == "delete":
@@ -295,6 +301,7 @@ def main():
             metadata_file_name=config["metadata_file"],
             merge_existing=True,
             store_file=True,
+            use_header_stamp=config["metadata_use_header_stamp"],
         )
 
 

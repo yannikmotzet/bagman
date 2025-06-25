@@ -129,12 +129,18 @@ def check_db_integrity(database, columns):
 
 
 def generate_metadata(
-    recording_path, metadata_file_name, merge_existing=True, store_file=True
+    recording_path,
+    metadata_file_name,
+    merge_existing=True,
+    store_file=True,
+    use_header_stamp=False,
 ):
     metadata_file = os.path.join(recording_path, metadata_file_name)
 
     # generate metadata
-    rec_metadata = mcap_utils.get_rec_info(recording_path)
+    rec_metadata = mcap_utils.get_rec_info(
+        recording_path, use_header_stamp=use_header_stamp
+    )
 
     # merge with existing file
     if merge_existing and os.path.exists(metadata_file):
@@ -164,6 +170,7 @@ def add_recording(
     override_db=True,
     sort_by="start_time",
     store_metadata_file=True,
+    use_header_stamp=False,
 ):
     """
     Adds a recording into the specified database and optionally stores the recording metadata file.
@@ -174,6 +181,7 @@ def add_recording(
         override_db (bool, optional): If True, existing records in db with the same path will be updated. Defaults to True.
         sort_by (str, optional): The field by which to sort the database records. Defaults to "start_time".
         store_metadata_file (bool, optional): If True, the recording metadata will be stored in a YAML file at the recording path. Defaults to True.
+        use_header_stamp (bool, optional): If True, the ROS header stamp will be used instead of .mcap log time for the recording metadata. Defaults to False.
     Raises:
         Exception: If there is an error writing the metadata file.
     Returns:
@@ -195,6 +203,7 @@ def add_recording(
             metadata_file_name,
             merge_existing=True,
             store_file=store_metadata_file,
+            use_header_stamp=use_header_stamp,
         )
 
     # ensure that recording path in metadata is storage path and not local path

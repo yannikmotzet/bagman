@@ -506,6 +506,7 @@ def st_page_upload():
             recording_path,
             metadata_file_name=config["metadata_file"],
             sort_by=config["database_sort_by"],
+            use_header_stamp=config["use_header_stamp"],
         )
         del db
 

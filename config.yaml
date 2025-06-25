@@ -12,6 +12,7 @@ database_sort_by: 'start_time' # column to sort recordings by in the dashboard, 
 # recorder settings
 metadata_recorder: ['name', 'description', 'operator', 'vehicle', 'location'] # fields which needs to be set manually since cannot be extracted from .mcap
 metadata_file: bagman.yaml
+metadata_use_header_stamp: False # use ROS header stamp instead of log time from .mcap (this increases processing time since messages need to be decoded)
 
 # dashboard settings
 dashboard_port: 8502

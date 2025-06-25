@@ -11,12 +11,13 @@ from mcap.reader import make_reader
 from mcap_ros2.decoder import DecoderFactory
 
 
-def get_mcap_info(file: str) -> Dict[str, Any]:
+def get_mcap_info(file: str, use_header_stamp: bool = False) -> Dict[str, Any]:
     """
     Extracts and returns information about the channels in an MCAP file.
 
     Args:
         file (str): The path to the MCAP file.
+        use_header_stamp (bool): Whether to use ROS header timestamp if available. Defaults to False.
 
     Returns:
         dict: A dictionary where the keys are channel topics and the values are dictionaries containing:
@@ -27,7 +28,7 @@ def get_mcap_info(file: str) -> Dict[str, Any]:
             - frequency (float): The frequency of messages in the channel (messages per second).
     """
     with open(file, "rb") as f:
-        reader = make_reader(f)
+        reader = make_reader(f, decoder_factories=[DecoderFactory()])
 
         channel_info: Dict[str, Dict[str, Any]] = defaultdict(
             lambda: {
@@ -39,11 +40,38 @@ def get_mcap_info(file: str) -> Dict[str, Any]:
             }
         )
 
-        for schema, channel, message in reader.iter_messages():
+        # select the generator to decode messages in case of use_header_stamp
+        iterator = (
+            reader.iter_decoded_messages()
+            if use_header_stamp
+            else reader.iter_messages()
+        )
+
+        # use the selected generator in a single loop
+        for item in iterator:
+            schema, channel, message = item[:3]  # Unpack first three elements
+            ros_msg = item[3] if use_header_stamp else None  # Handle optional ros_msg
+
             info = channel_info[channel.topic]
             info["num_messages"] += 1
             info["message_type"] = schema.name
-            timestamp = message.log_time / 1e9 if message.log_time is not None else 0
+            if use_header_stamp and hasattr(ros_msg, "header"):
+                timestamp = (
+                    ros_msg.header.stamp.sec + ros_msg.header.stamp.nanosec * 1e-9
+                )
+                pub_timestamp = (
+                    message.publish_time / 1e9
+                    if message.publish_time is not None
+                    else 0
+                )
+                log_timestamp = (
+                    message.log_time / 1e9 if message.log_time is not None else 0
+                )
+                print(f"{timestamp} - {pub_timestamp} - {log_timestamp}")
+            else:
+                timestamp = (
+                    message.log_time / 1e9 if message.log_time is not None else 0
+                )
             if info["start_time"] is None or timestamp < info["start_time"]:
                 info["start_time"] = timestamp
             if info["end_time"] is None or timestamp > info["end_time"]:
@@ -58,12 +86,16 @@ def get_mcap_info(file: str) -> Dict[str, Any]:
     return channel_info
 
 
-def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]:
+def get_rec_info(
+    recording_path: str, recursive: bool = False, use_header_stamp: bool = False
+) -> Dict[str, Any]:
     """
     Collects and merges information from all .mcap files in the specified directory path.
 
     Args:
         recording_path (str): The recording directory path to search for .mcap files.
+        recursive (bool): Whether to search for .mcap files recursively in subdirectories. Defaults to False.
+        use_header_stamp (bool): Whether to use the header timestamp if available. Defaults to False.
 
     Returns:
         Dict[str, Any]: A dictionary containing merged information about the recordings, including:
@@ -109,7 +141,7 @@ def get_rec_info(recording_path: str, recursive: bool = False) -> Dict[str, Any]
     }
 
     for file_path in mcap_files:
-        mcap_info = get_mcap_info(file_path)
+        mcap_info = get_mcap_info(file_path, use_header_stamp)
 
         # calculate file md5sum and size
         with open(file_path, "rb") as f:
