@@ -232,12 +232,12 @@ def add_recording(
         database.insert_multiple_records(sorted_records)  # insert sorted records
 
 
-def generate_map(recording_name, config="config.yaml", topic=None, speed=True):
+def generate_map(recording_path, config, topic=None, speed=True):
     """
     Generates an HTML map from GPS data in a recording.
     Args:
-        recording_name (str): The name of the recording directory.
-        config (str, optional): Path to the configuration file. Defaults to "config.yaml".
+        recording_path (str): Path to  recording directory.
+        config (dict): Configuration dictionary containing necessary paths and settings.
         topic (str, optional): The specific topic to extract GPS data from. If None, the first topic of type
                                "sensor_msgs/msg/NavSatFix" will be used. Defaults to None.
         speed (bool, optional): If True, the speed of the vehicle will be calculated and displayed on the map. Defaults to True.
@@ -270,9 +270,6 @@ def generate_map(recording_name, config="config.yaml", topic=None, speed=True):
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return R * c
 
-    config = load_config(config)
-
-    recording_path = os.path.join(config["recordings_storage"], recording_name)
     if not os.path.exists(recording_path):
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
@@ -327,23 +324,25 @@ def generate_map(recording_name, config="config.yaml", topic=None, speed=True):
 
     # generate and store html map
     html_path = os.path.join(
-        recording_path, config["resources_folder"], f"{recording_name}_map.html"
+        recording_path,
+        config["resources_folder"],
+        f"{os.path.basename(recording_path)}_map.html",
     )
     os.makedirs(os.path.dirname(html_path), exist_ok=True)
     plot_utils.plot_map(gps_data, html_path)
 
 
 def generate_video(
-    recording_name,
-    config="config.yaml",
+    recording_path,
+    config,
     topics=None,
     types=["sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"],
 ):
     """
     Generates a video from image data in a recording.
     Args:
-        recording_name (str): The name of the recording directory.
-        config (str, optional): Path to the configuration file. Defaults to "config.yaml".
+        recording_path (str): Path to  recording directory.
+        config (dict): Configuration dictionary containing necessary paths and settings.
         topic (str, optional): The specific topic to extract image data from. If None, the first topic of type
                                "sensor_msgs/msg/Image" will be used. Defaults to None.
     Raises:
@@ -352,9 +351,6 @@ def generate_video(
         None
     """
 
-    config = load_config(config)
-
-    recording_path = os.path.join(config["recordings_storage"], recording_name)
     if not os.path.exists(recording_path):
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
@@ -390,7 +386,7 @@ def generate_video(
             else 30
         )
 
-        file_name = f"{recording_name}{topic.replace('/', '_')}.mp4"
+        file_name = f"{os.path.basename(recording_path)}{topic.replace('/', '_')}.mp4"
         video_path = os.path.join(recording_path, config["resources_folder"], file_name)
         os.makedirs(os.path.dirname(video_path), exist_ok=True)
 

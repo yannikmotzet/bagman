@@ -83,6 +83,18 @@ def arg_parser():
         "recording_path_local", help="path to the local recording"
     )
 
+    # map plot command
+    map_parser = subparsers.add_parser(
+        "map", help="generate a map plot of the recordings in storage"
+    )
+    map_parser.add_argument("recording_name", help="name of the recording")
+
+    # video file command
+    video_parser = subparsers.add_parser(
+        "video", help="generate a video file from the recording"
+    )
+    video_parser.add_argument("recording_name", help="name of the recording")
+
     return parser
 
 
@@ -296,6 +308,14 @@ def main():
             merge_existing=True,
             store_file=True,
         )
+
+    elif args.command == "map":
+        recording_path = os.path.join(config["recordings_storage"], args.recording_name)
+        bagman_utils.generate_map(recording_path, config)
+
+    elif args.command == "video":
+        recording_path = os.path.join(config["recordings_storage"], args.recording_name)
+        bagman_utils.generate_video(recording_path, config)
 
 
 if __name__ == "__main__":
