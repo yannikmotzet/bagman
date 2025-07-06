@@ -88,12 +88,24 @@ def arg_parser():
         "map", help="generate a map plot of the recordings in storage"
     )
     map_parser.add_argument("recording_name", help="name of the recording")
+    map_parser.add_argument(
+        "-t",
+        "--topic",
+        default=None,
+        help="specify a topic for the operation (optional)",
+    )
 
     # video file command
     video_parser = subparsers.add_parser(
         "video", help="generate a video file from the recording"
     )
     video_parser.add_argument("recording_name", help="name of the recording")
+    video_parser.add_argument(
+        "-t",
+        "--topic",
+        default=None,
+        help="specify a topic for the operation (optional)",
+    )
 
     return parser
 
@@ -310,12 +322,14 @@ def main():
         )
 
     elif args.command == "map":
+        print("Generating mcap plot ...")
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        bagman_utils.generate_map(recording_path, config)
+        bagman_utils.generate_map(recording_path, config, args.topic)
 
     elif args.command == "video":
+        print("Generating video file ...")
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        bagman_utils.generate_video(recording_path, config)
+        bagman_utils.generate_video(recording_path, config, [args.topic])
 
 
 if __name__ == "__main__":

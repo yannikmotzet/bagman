@@ -232,7 +232,7 @@ def add_recording(
         database.insert_multiple_records(sorted_records)  # insert sorted records
 
 
-def generate_map(recording_path, config, topic=None, speed=True):
+def generate_map(recording_path, config, topic=None, speed=True, html_path=None):
     """
     Generates an HTML map from GPS data in a recording.
     Args:
@@ -241,6 +241,7 @@ def generate_map(recording_path, config, topic=None, speed=True):
         topic (str, optional): The specific topic to extract GPS data from. If None, the first topic of type
                                "sensor_msgs/msg/NavSatFix" will be used. Defaults to None.
         speed (bool, optional): If True, the speed of the vehicle will be calculated and displayed on the map. Defaults to True.
+        html_path (str, optional): Path to save the generated HTML map. If None, it will be saved in the resources folder in the recording directory
     Raises:
         FileNotFoundError: If the recording directory does not exist.
     Returns:
@@ -280,6 +281,7 @@ def generate_map(recording_path, config, topic=None, speed=True):
         return
 
     if topic is None:
+        # search for a NavSatFix topic in metadata
         topics_nav_sat_fix = [
             t["name"]
             for t in metadata["topics"]
@@ -289,6 +291,26 @@ def generate_map(recording_path, config, topic=None, speed=True):
             print("no NavSatFix topic found")
             return
         topic = topics_nav_sat_fix[0]
+    else:
+        # check if topic is valid
+        if not any(t["name"] == topic for t in metadata["topics"]):
+            print(f"Topic {topic} not found in metadata")
+            return
+
+        topic_type = next(
+            (t["type"] for t in metadata["topics"] if t["name"] == topic), None
+        )
+        if topic_type != "sensor_msgs/msg/NavSatFix":
+            print(f"Topic {topic} is not of type sensor_msgs/msg/NavSatFix")
+            return
+
+        # check if topic exsists
+        if not any(
+            t["name"] == topic and t["type"] == "sensor_msgs/msg/NavSatFix"
+            for t in metadata["topics"]
+        ):
+            print(f"Topic {topic} not found in metadata")
+            return
 
     mcap_files = [os.path.join(recording_path, f["path"]) for f in metadata["files"]]
 
@@ -323,12 +345,14 @@ def generate_map(recording_path, config, topic=None, speed=True):
         ]
 
     # generate and store html map
-    html_path = os.path.join(
-        recording_path,
-        config["resources_folder"],
-        f"{os.path.basename(recording_path)}_map.html",
-    )
+    if html_path is None:
+        html_path = os.path.join(
+            recording_path,
+            config["resources_folder"],
+            f"{os.path.basename(recording_path)}_map.html",
+        )
     os.makedirs(os.path.dirname(html_path), exist_ok=True)
+
     plot_utils.plot_map(gps_data, html_path)
 
 
@@ -339,12 +363,12 @@ def generate_video(
     types=["sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"],
 ):
     """
-    Generates a video from image data in a recording.
+    Generates videos from image data in a recording for multiple topics.
     Args:
-        recording_path (str): Path to  recording directory.
+        recording_path (str): Path to the recording directory.
         config (dict): Configuration dictionary containing necessary paths and settings.
-        topic (str, optional): The specific topic to extract image data from. If None, the first topic of type
-                               "sensor_msgs/msg/Image" will be used. Defaults to None.
+        topics (list of str, optional): List of topics to extract image data from. If None, all topics of type
+                                        "sensor_msgs/msg/Image" or "sensor_msgs/msg/CompressedImage" will be used.
     Raises:
         FileNotFoundError: If the recording directory does not exist.
     Returns:
@@ -363,17 +387,29 @@ def generate_video(
     if topics is None:
         topics_image = [t["name"] for t in metadata["topics"] if t["type"] in types]
 
-    # check that either Image or ImageCompressed topic is used
-    topics = [t for t in topics_image if not t.endswith("/compressed")]
-    topics += [
-        t
-        for t in topics_image
-        if t.endswith("/compressed") and t.replace("/compressed", "") not in topics
-    ]
+        # check that either Image or ImageCompressed topic is used
+        # try to use Image topics, if not available use CompressedImage topics
+        topics = [t for t in topics_image if not t.endswith("compressed")]
+        topics += [
+            t
+            for t in topics_image
+            if t.endswith("compressed") and t.replace("compressed", "") not in topics
+        ]
 
     mcap_files = [os.path.join(recording_path, f["path"]) for f in metadata["files"]]
 
+    if len(topics) == 0:
+        print("no valid image topics found")
+        return
+
     for topic in topics:
+        topic_type = next(
+            (t["type"] for t in metadata["topics"] if t["name"] == topic), None
+        )
+        if topic_type not in types:
+            print(f"Topic {topic} is not of type {types}")
+            continue
+
         image_data = mcap_utils.read_msg_image(mcap_files, topic)
 
         if len(image_data) == 0:
