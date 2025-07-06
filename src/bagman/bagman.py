@@ -107,6 +107,18 @@ def arg_parser():
         help="specify a topic for the operation (optional)",
     )
 
+    download_parser = subparsers.add_parser(
+        "download", help="download a recording from storage to local machine"
+    )
+    download_parser.add_argument(
+        "recording_name", help="name of the recording to download"
+    )
+    download_parser.add_argument(
+        "destination",
+        default=".",
+        help="destination path to download the recording (default: current directory)",
+    )
+
     return parser
 
 
@@ -330,6 +342,21 @@ def main():
         print("Generating video file ...")
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
         bagman_utils.generate_video(recording_path, config, [args.topic])
+
+    elif args.command == "download":
+        print("Downloading recording ...")
+        recording_path = os.path.join(config["recordings_storage"], args.recording_name)
+
+        try:
+            bagman_utils.download_recording(
+                recording_path,
+                args.destination,
+                config["metadata_file"],
+                [config["metadata_file"], "metadata.yaml"],
+            )
+        except Exception as e:
+            print(f"Download failed: {str(e)}")
+            sys.exit(0)
 
 
 if __name__ == "__main__":

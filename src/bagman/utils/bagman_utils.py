@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import shutil
@@ -52,10 +53,13 @@ def load_config(file_path="config.yaml"):
     return replace_env_vars(raw_config)
 
 
-def upload_recording(path, recordings_path, move=False, verbose=True):
+def upload_recording(local_path, storage_path, move=False, verbose=True):
     """
     Upload a recording to the specified recordings directory.
 
+    Args:
+        local_path (str): The path to the recording file to be uploaded.
+        storage_path (str): The path to the recordings directory where the file will be uploaded.
         move (bool, optional): If True, the recording file will be moved to the recordings directory.
                                If False, the recording file will be copied. Default is False.
         verbose (bool, optional): If True, prints the upload progress. Default is True.
@@ -65,18 +69,18 @@ def upload_recording(path, recordings_path, move=False, verbose=True):
         FileNotFoundError: If the recording file does not exist.
     """
 
-    if not os.path.exists(recordings_path):
-        raise FileNotFoundError(f"The directory {recordings_path} does not exist.")
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"The file {path} does not exist.")
+    if not os.path.exists(storage_path):
+        raise FileNotFoundError(f"The directory {storage_path} does not exist.")
+    if not os.path.exists(local_path):
+        raise FileNotFoundError(f"The file {local_path} does not exist.")
 
     if verbose:
-        print(f"Uploading {path} to {recordings_path}...")
+        print(f"Uploading {local_path} to {storage_path}...")
         # TODO add progress bar
-    shutil.copy(path, recordings_path)
+    shutil.copy(local_path, storage_path)
     if move:
         # TODO check if upload was successful
-        os.remove(path)
+        os.remove(local_path)
 
 
 def load_yaml_file(file):
@@ -446,3 +450,87 @@ def generate_video(
         os.system(f"{command} > /dev/null 2>&1")
         os.remove(video_path)
         os.rename(compressed_video_path, video_path)
+
+
+def download_recording(
+    recording_path,
+    destination,
+    metadata_file,
+    additional_files=[],
+    check_md5=True,
+    verbose=True,
+):
+    """
+    Downloads a recording and its associated files from a source directory to a destination directory.
+    Args:
+        recording_path (str): Path to the source directory containing the recording files.
+        destination (str): Path to the destination directory where the recording files will be copied.
+        metadata_file (str): Name of the metadata file in the source directory that contains information about the recording files.
+        additional_files (list, optional): List of additional file names to copy from the source directory. Defaults to an empty list.
+        check_md5 (bool, optional): Whether to perform MD5 checksum validation for file integrity. Defaults to True.
+        verbose (bool, optional): Whether to print detailed status messages during the operation. Defaults to True.
+    Returns:
+        dict: A dictionary containing the download status of each file. Keys are file paths, and values are booleans indicating success (True) or failure (False).
+    Raises:
+        FileNotFoundError: If the source directory, destination directory, or metadata file does not exist.
+    """
+
+    recording_name = os.path.basename(recording_path)
+    destination_path = os.path.join(destination, recording_name)
+    download_status = {}
+
+    if not os.path.exists(recording_path):
+        raise FileNotFoundError(f"The directory {recording_path} does not exist.")
+    if not os.path.exists(destination):
+        raise FileNotFoundError(f"The directory {destination} does not exist.")
+    if not os.path.exists(os.path.join(recording_path, metadata_file)):
+        raise FileNotFoundError(
+            f"The metadata file {metadata_file} does not exist in the recording directory."
+        )
+
+    os.makedirs(destination_path, exist_ok=True)
+
+    metadata = load_yaml_file(os.path.join(recording_path, metadata_file))
+
+    for file in metadata["files"]:
+        file_path = os.path.join(recording_path, file["path"])
+        if not os.path.exists(file_path):
+            download_status[file["path"]] = False
+            if verbose:
+                print(f"File {file_path} does not exist, skipping...")
+            continue
+
+        shutil.copy(file_path, destination_path)
+
+        if check_md5:
+            if "md5sum" not in file.keys():
+                download_status[file["path"]] = True
+                if verbose:
+                    print(
+                        f"No MD5 checksum found for {file_path}, skipping integrity check."
+                    )
+                    continue
+
+            with open(os.path.join(destination_path, file["path"]), "rb") as f:
+                md5_sum_downloaded = hashlib.md5(f.read()).hexdigest()
+
+            if md5_sum_downloaded != file["md5sum"]:
+                download_status[file["path"]] = False
+                if verbose:
+                    print(
+                        f"MD5 checksum for {file_path} does not match, file may be corrupted."
+                    )
+
+        download_status[file["path"]] = True
+
+    # download additional files
+    for file in additional_files:
+        if not os.path.exists(os.path.join(recording_path, file)):
+            download_status[file] = False
+            if verbose:
+                print(f"Additional file {file} does not exist, skipping...")
+            continue
+        shutil.copy(os.path.join(recording_path, file), destination_path)
+        download_status[file] = True
+
+    return download_status
