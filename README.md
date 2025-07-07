@@ -83,8 +83,9 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
     bagman CLI
 
     positional arguments:
-      {upload,add,update,delete,remove,exist,connection,metadata}
+    {upload,download,add,update,delete,remove,exist,connection,metadata,map,video}
         upload              upload local recording to storage (optional: add to database)
+        download            download a recording from storage to local machine
         add                 add a recording to database or update existing one
         update              update an existing recording in database
         delete              delete a recording from storage (optional: remove from database)
@@ -92,6 +93,8 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
         exist               check if recording exists in storage and database
         connection          check connection to the storage and database
         metadata            (re)generate metadata file for a local recording
+        map                 generate a map plot from GNSS data in the recording
+        video               generate a video file from the camera data in the recording
 
     options:
       -h, --help            show this help message and exit

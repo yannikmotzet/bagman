@@ -36,6 +36,19 @@ def arg_parser():
         "-a", "--add", action="store_true", help="add recording to database"
     )
 
+    # download command
+    download_parser = subparsers.add_parser(
+        "download", help="download a recording from storage to local machine"
+    )
+    download_parser.add_argument(
+        "recording_name", help="name of the recording to download"
+    )
+    download_parser.add_argument(
+        "destination",
+        default=".",
+        help="destination path to download the recording (default: current directory)",
+    )
+
     # add command
     add_parser = subparsers.add_parser(
         "add", help="add a recording to database or update existing one"
@@ -85,7 +98,7 @@ def arg_parser():
 
     # map plot command
     map_parser = subparsers.add_parser(
-        "map", help="generate a map plot of the recordings in storage"
+        "map", help="generate a map plot from GNSS data in the recording"
     )
     map_parser.add_argument("recording_name", help="name of the recording")
     map_parser.add_argument(
@@ -94,10 +107,15 @@ def arg_parser():
         default=None,
         help="specify a topic for the operation (optional)",
     )
+    map_parser.add_argument(
+        "--local",
+        action="store_true",
+        help="use local recording instead of storage",
+    )
 
     # video file command
     video_parser = subparsers.add_parser(
-        "video", help="generate a video file from the recording"
+        "video", help="generate a video file from the camera data in the recording"
     )
     video_parser.add_argument("recording_name", help="name of the recording")
     video_parser.add_argument(
@@ -106,17 +124,10 @@ def arg_parser():
         default=None,
         help="specify a topic for the operation (optional)",
     )
-
-    download_parser = subparsers.add_parser(
-        "download", help="download a recording from storage to local machine"
-    )
-    download_parser.add_argument(
-        "recording_name", help="name of the recording to download"
-    )
-    download_parser.add_argument(
-        "destination",
-        default=".",
-        help="destination path to download the recording (default: current directory)",
+    video_parser.add_argument(
+        "--local",
+        action="store_true",
+        help="use local recording instead of storage",
     )
 
     return parser
@@ -243,23 +254,31 @@ def main():
 
     elif args.command == "add":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_or_update_recording(
-            db,
-            recording_path,
-            config["metadata_file"],
-            config["database_sort_by"],
-            True,
-        )
+        try:
+            add_or_update_recording(
+                db,
+                recording_path,
+                config["metadata_file"],
+                config["database_sort_by"],
+                True,
+            )
+        except Exception as e:
+            print(f"Failed to add recording: {str(e)}")
+            sys.exit(0)
 
     elif args.command == "update":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_or_update_recording(
-            db,
-            recording_path,
-            config["metadata_file"],
-            config["database_sort_by"],
-            False,
-        )
+        try:
+            add_or_update_recording(
+                db,
+                recording_path,
+                config["metadata_file"],
+                config["database_sort_by"],
+                False,
+            )
+        except Exception as e:
+            print(f"Failed to update recording: {str(e)}")
+            sys.exit(0)
 
     elif args.command == "delete":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
@@ -326,22 +345,47 @@ def main():
 
         # generate metadata (merge with existing and store to file)
         print("Generating metadata...")
-        _ = bagman_utils.generate_metadata(
-            args.recording_path_local,
-            metadata_file_name=config["metadata_file"],
-            merge_existing=True,
-            store_file=True,
-        )
+
+        try:
+            _ = bagman_utils.generate_metadata(
+                args.recording_path_local,
+                metadata_file_name=config["metadata_file"],
+                merge_existing=True,
+                store_file=True,
+            )
+        except Exception as e:
+            print(f"Metadata generation failed: {str(e)}")
+            sys.exit(0)
 
     elif args.command == "map":
         print("Generating mcap plot ...")
-        recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        bagman_utils.generate_map(recording_path, config, args.topic)
+        if args.local:
+            recording_path = args.recording_name
+        else:
+            recording_path = os.path.join(
+                config["recordings_storage"], args.recording_name
+            )
+
+        try:
+            bagman_utils.generate_map(recording_path, config, args.topic)
+        except Exception as e:
+            print(f"Map generation failed: {str(e)}")
+            sys.exit(0)
 
     elif args.command == "video":
         print("Generating video file ...")
-        recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        bagman_utils.generate_video(recording_path, config, [args.topic])
+        if args.local:
+            recording_path = args.recording_name
+        else:
+            recording_path = os.path.join(
+                config["recordings_storage"], args.recording_name
+            )
+
+        try:
+            bagman_utils.generate_video(recording_path, config, [args.topic])
+        except Exception as e:
+            print(f"Video generation failed: {str(e)}")
+            sys.exit(0)
 
     elif args.command == "download":
         print("Downloading recording ...")
