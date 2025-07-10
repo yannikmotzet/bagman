@@ -196,6 +196,22 @@ def remove_recording(db, recording_name):
     db.remove_record("name", recording_name)
 
 
+def is_db_required(args):
+    return args.command not in {
+        "upload",
+        "delete",
+        "metadata",
+        "map",
+        "video",
+        "download",
+    } or (
+        args.command == "upload"
+        and args.add
+        or args.command == "delete"
+        and args.remove
+    )
+
+
 def main():
     args = arg_parser().parse_args()
 
@@ -210,15 +226,17 @@ def main():
 
     config = bagman_utils.load_config(config_file)
 
-    load_dotenv()
+    # only load db if required
     db_connected = False
-    try:
-        db = BagmanDB(
-            config["database_type"], config["database_uri"], config["database_name"]
-        )
-        db_connected = True
-    except Exception as e:
-        print(f"Failed to connect to the database: {str(e)}")
+    if is_db_required(args):
+        load_dotenv()
+        try:
+            db = BagmanDB(
+                config["database_type"], config["database_uri"], config["database_name"]
+            )
+            db_connected = True
+        except Exception as e:
+            print(f"Failed to connect to the database: {str(e)}")
 
     if args.command == "upload":
         recording_name = os.path.basename(os.path.normpath(args.recording_path_local))
