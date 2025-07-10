@@ -201,6 +201,17 @@ def add_recording(
             store_file=store_metadata_file,
         )
 
+    # check recording name
+    if (
+        "name" not in rec_metadata.keys()
+        or not rec_metadata["name"]
+        or rec_metadata["name"] == ""
+    ):
+        raise Exception(
+            "Recording name could not be extracted from recording path."
+            "Try to set it manually in the metadata file."
+        )
+
     # ensure that recording path in metadata is storage path and not local path
     if "path" in rec_metadata.keys():
         if rec_metadata["path"] != recording_path:
