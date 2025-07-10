@@ -230,6 +230,26 @@ def read_msg_nav_sat_fix(files, topic, step=1):
     return nav_sat_data
 
 
+def get_opencv_conversion_code(encoding: str):
+    """Map ROS encoding to OpenCV conversion code (to BGR)."""
+    encoding = encoding.lower()
+    return {
+        "rgb8": cv2.COLOR_RGB2BGR,
+        "rgba8": cv2.COLOR_RGBA2BGR,
+        "mono8": cv2.COLOR_GRAY2BGR,
+        "mono16": None,  # No direct conversion; usually for depth
+        "bayer_rggb8": cv2.COLOR_BAYER_RG2BGR,
+        "bayer_bggr8": cv2.COLOR_BAYER_BG2BGR,
+        "bayer_grbg8": cv2.COLOR_BAYER_GR2BGR,
+        "bayer_gbrg8": cv2.COLOR_BAYER_GB2BGR,
+        "yuv422": cv2.COLOR_YUV2BGR_YUY2,
+        "yuv422_yuy2": cv2.COLOR_YUV2BGR_YUY2,
+        "uyvy": cv2.COLOR_YUV2BGR_UYVY,
+        "bgr8": None,  # Already in OpenCV format
+        "bgra8": cv2.COLOR_BGRA2BGR,
+    }.get(encoding, None)
+
+
 def read_msg_image(files, topic):
     """
     Reads image data from a Camera topic in one or more MCAP files.
@@ -253,20 +273,51 @@ def read_msg_image(files, topic):
 
             for schema, channel, message, ros_msg in reader.iter_decoded_messages():
                 if channel.topic == topic:
+                    image_np = None
+
                     if schema.name == "sensor_msgs/msg/Image":
-                        image_np = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape(
-                            (ros_msg.height, ros_msg.width, -1)
-                        )
+                        encoding = ros_msg.encoding.lower()
+                        height = ros_msg.height
+                        width = ros_msg.width
+
+                        img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+
+                        # Handle mono8, bayer, RGB, BGR, etc.
+                        if encoding in ["mono8", "mono16"]:
+                            img_np = img_data.reshape((height, width))
+                        elif encoding in ["bgr8", "rgb8", "rgba8", "bgra8"]:
+                            img_np = img_data.reshape(
+                                (
+                                    height,
+                                    width,
+                                    3 if "8" in encoding and "a" not in encoding else 4,
+                                )
+                            )
+                        elif encoding.startswith("bayer_"):
+                            img_np = img_data.reshape((height, width))
+                        elif encoding in ["yuv422", "yuv422_yuy2", "uyvy"]:
+                            img_np = img_data.reshape((height, width, 2))
+                        else:
+                            raise ValueError(f"Unsupported encoding: {encoding}")
+
+                        conversion_code = get_opencv_conversion_code(encoding)
+                        if conversion_code is not None:
+                            image_np = cv2.cvtColor(img_np, conversion_code)
+                        else:
+                            image_np = img_np  # Already in BGR
+
                     elif schema.name == "sensor_msgs/msg/CompressedImage":
-                        np_arr = np.frombuffer(ros_msg.data, dtype=np.uint8)
+                        img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
                         # decode JPEG
-                        image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-                    camera_data.append(
-                        {
-                            "stamp": ros_msg.header.stamp.sec
-                            + ros_msg.header.stamp.nanosec * 1e-9,
-                            "data": image_np,
-                        }
-                    )
+                        image_np = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
+
+                    if image_np is not None:
+                        camera_data.append(
+                            {
+                                "stamp": ros_msg.header.stamp.sec
+                                + ros_msg.header.stamp.nanosec * 1e-9,
+                                "data": image_np,
+                            }
+                        )
 
     return camera_data
