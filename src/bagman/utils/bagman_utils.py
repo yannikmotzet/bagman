@@ -413,7 +413,7 @@ def generate_video(
 
     mcap_files = [os.path.join(recording_path, f["path"]) for f in metadata["files"]]
 
-    if len(topics) == 0:
+    if not topics or len(topics) == 0:
         print("no valid image topics found")
         return
 

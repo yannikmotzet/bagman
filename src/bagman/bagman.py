@@ -400,7 +400,10 @@ def main():
             )
 
         try:
-            bagman_utils.generate_video(recording_path, config, [args.topic])
+            if args.topic:
+                bagman_utils.generate_video(recording_path, config, [args.topic])
+            else:
+                bagman_utils.generate_video(recording_path, config)
         except Exception as e:
             print(f"Video generation failed: {str(e)}")
             sys.exit(0)
