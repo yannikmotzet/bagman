@@ -14,7 +14,7 @@ dependencies = [
     "pandas>=2.2.3",
     "mcap>=1.2.2",
     "mcap-ros2-support>=0.5.5",
-    "streamlit>=1.41.1",
+    "streamlit>=1.46.1",
     "PyYAML>=6.0.2",
     "tinydb>=4.8.2",
     "click>=8.1.8",
@@ -25,6 +25,7 @@ dependencies = [
     "scipy>=1.15.2",
     "pymongo>=4.13.0",
     "elasticsearch>=9.0.1",
+    "streamlit-authenticator>=0.4.2",
 ]
 
 [project.optional-dependencies]
