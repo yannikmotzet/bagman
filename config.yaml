@@ -32,3 +32,6 @@ dash_allow_path_link: False # allow to open link of path in new tab (e.g. for li
 # dash_auth_file: .streamlit/authentification.yaml # path to streamlit-authenticator config file, uncomment to disable authentification (https://github.com/mkhorasani/Streamlit-Authenticator?tab=readme-ov-file#3-creating-a-config-file)
 dash_auth_pages: [] # select the pages  ("recordings", "jobs", "upload") which require authentication
 dash_position_navigation: sidebar # position of navigation bar, can be 'sidebar' or 'top'
+
+# pipeline settings
+prefect_api_url: http://localhost:4200/api # URL of the Prefect API server

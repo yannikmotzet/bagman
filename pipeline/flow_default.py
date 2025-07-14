@@ -57,7 +57,10 @@ def add_recording(recording_name, config):
 def generate_map_plot(recording_name, config_file):
     logger = get_run_logger()
     logger.info(f"Generating map for {recording_name}...")
-    bagman_utils.generate_map(recording_name, config_file)
+    config = bagman_utils.load_config(config_file)
+    bagman_utils.generate_map(
+        os.path.join(config["recordings_storage"], recording_name), config
+    )
     logger.info("Map generation complete.")
 
 
@@ -65,7 +68,10 @@ def generate_map_plot(recording_name, config_file):
 def generate_video_files(recording_name, config_file):
     logger = get_run_logger()
     logger.info(f"Generating video for {recording_name}...")
-    bagman_utils.generate_video(recording_name, config_file)
+    config = bagman_utils.load_config(config_file)
+    bagman_utils.generate_video(
+        os.path.join(config["recordings_storage"], recording_name), config
+    )
     logger.info("Video generation complete.")
 
 
