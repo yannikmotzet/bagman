@@ -142,11 +142,11 @@ def generate_metadata(
 
     # merge with existing file
     if merge_existing and os.path.exists(metadata_file):
-        try:
-            rec_metadata_old = load_yaml_file(metadata_file)
-        except Exception as e:
-            print(str(e))
+        rec_metadata_old = load_yaml_file(metadata_file)
+        if rec_metadata_old is None:
+            raise FileNotFoundError("Metadata file could not be loaded.")
             return
+
         rec_metadata_old.update(rec_metadata)
         rec_metadata = rec_metadata_old
 
@@ -187,10 +187,9 @@ def add_recording(
 
     # use existing metadata file
     if use_existing_metadata and os.path.exists(metadata_file_path):
-        try:
-            rec_metadata = load_yaml_file(metadata_file_path)
-        except Exception as e:
-            print(str(e))
+        rec_metadata = load_yaml_file(metadata_file_path)
+        if rec_metadata is None:
+            raise FileNotFoundError("Metadata file could not be loaded.")
 
     # generate new metadata
     else:
@@ -289,11 +288,9 @@ def generate_map(recording_path, config, topic=None, speed=True, html_path=None)
     if not os.path.exists(recording_path):
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
-    try:
-        metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
-    except Exception as e:
-        print(f"Error loading metadata file: {e}")
-        return
+    metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
+    if metadata is None:
+        raise FileNotFoundError("Metadata file could not be loaded.")
 
     if topic is None:
         # search for a NavSatFix topic in metadata
@@ -393,11 +390,9 @@ def generate_video(
     if not os.path.exists(recording_path):
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
-    try:
-        metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
-    except Exception as e:
-        print(f"Error loading metadata file: {e}")
-        return
+    metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
+    if metadata is None:
+        raise FileNotFoundError("Metadata file could not be loaded.")
 
     if topics is None:
         topics_image = [t["name"] for t in metadata["topics"] if t["type"] in types]
@@ -461,6 +456,65 @@ def generate_video(
         os.system(f"{command} > /dev/null 2>&1")
         os.remove(video_path)
         os.rename(compressed_video_path, video_path)
+
+
+def compress_recording_image(
+    recording_path, config, compressed_suffix="/compressed", remove_uncompressed=False
+):
+    if not os.path.exists(recording_path):
+        raise FileNotFoundError(f"The directory {recording_path} does not exist.")
+
+    metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
+    if metadata is None:
+        raise FileNotFoundError("Metadata file could not be loaded.")
+
+    mcap_files = [f["path"] for f in metadata["files"]]
+
+    topics_image = [
+        t["name"] for t in metadata["topics"] if t["type"] == "sensor_msgs/msg/Image"
+    ]
+    topics_compressed_image = [
+        t["name"]
+        for t in metadata["topics"]
+        if t["type"] == "sensor_msgs/msg/CompressedImage"
+    ]
+
+    topics_compressed_image_set = set(topics_compressed_image)
+    # keep only image topics that don't have a corresponding compressed topic
+    uncompressed_image_topics = [
+        topic
+        for topic in topics_image
+        if topic + compressed_suffix not in topics_compressed_image_set
+    ]
+
+    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S", time.gmtime())
+    compressed_folder = os.path.join(recording_path, f"compressed_{timestamp}")
+
+    try:
+        os.mkdir(compressed_folder)
+        for file in mcap_files:
+            mcap_utils.compress_image(
+                os.path.join(recording_path, file),
+                os.path.join(compressed_folder, file),
+                topics=uncompressed_image_topics,
+                compressed_suffix=compressed_suffix,
+                remove_uncompressed=remove_uncompressed,
+            )
+    except Exception as e:
+        raise Exception(f"Error during video compression: {e}")
+
+    # replace the original files with compressed ones
+    generate_metadata(compressed_folder, config["metadata_file"])
+    for file in mcap_files:
+        original_file = os.path.join(recording_path, file)
+        compressed_file = os.path.join(compressed_folder, file)
+        # TODO check if compressed_file contains valid data
+        if os.path.exists(compressed_file):
+            os.replace(compressed_file, original_file)
+    os.replace(
+        os.path.join(compressed_folder, config["metadata_file"]),
+        os.path.join(recording_path, config["metadata_file"]),
+    )
 
 
 def download_recording(

@@ -75,6 +75,23 @@ def generate_video_files(recording_name, config_file):
     logger.info("Video generation complete.")
 
 
+@task
+def compress_video(recording_name, config_file):
+    logger = get_run_logger()
+    logger.info(f"Compressing video for {recording_name}...")
+    config = bagman_utils.load_config(config_file)
+
+    try:
+        bagman_utils.compress_recording_image(
+            os.path.join(config["recordings_storage"], recording_name), config
+        )
+    except Exception as e:
+        logger.error(f"Failed to compress video: {e}")
+        sys.exit(1)
+
+    logger.info("Video compression complete.")
+
+
 @flow
 def flow_default(recording_name: str, config_file: str):
     logger = get_run_logger()
@@ -88,6 +105,7 @@ def flow_default(recording_name: str, config_file: str):
     result_add_recording = add_recording(recording_name, config)
     generate_map_plot(recording_name, config_file, wait_for=[result_add_recording])
     generate_video_files(recording_name, config_file, wait_for=[result_add_recording])
+    compress_video(recording_name, config_file, wait_for=[result_add_recording])
     logger.info("Flow completed.")
 
 

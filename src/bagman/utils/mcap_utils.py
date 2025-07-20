@@ -274,54 +274,54 @@ def read_msg_image(files, topic):
         with open(file, "rb") as f:
             reader = make_reader(f, decoder_factories=[DecoderFactory()])
 
-            for schema, channel, message, ros_msg in reader.iter_decoded_messages():
-                if channel.topic == topic:
-                    image_np = None
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages(
+                topics=[topic]
+            ):
+                image_np = None
+                if schema.name == "sensor_msgs/msg/Image":
+                    encoding = ros_msg.encoding.lower()
+                    height = ros_msg.height
+                    width = ros_msg.width
 
-                    if schema.name == "sensor_msgs/msg/Image":
-                        encoding = ros_msg.encoding.lower()
-                        height = ros_msg.height
-                        width = ros_msg.width
+                    img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
 
-                        img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
-
-                        # Handle mono8, bayer, RGB, BGR, etc.
-                        if encoding in ["mono8", "mono16"]:
-                            img_np = img_data.reshape((height, width))
-                        elif encoding in ["bgr8", "rgb8", "rgba8", "bgra8"]:
-                            img_np = img_data.reshape(
-                                (
-                                    height,
-                                    width,
-                                    3 if "8" in encoding and "a" not in encoding else 4,
-                                )
+                    # Handle mono8, bayer, RGB, BGR, etc.
+                    if encoding in ["mono8", "mono16"]:
+                        img_np = img_data.reshape((height, width))
+                    elif encoding in ["bgr8", "rgb8", "rgba8", "bgra8"]:
+                        img_np = img_data.reshape(
+                            (
+                                height,
+                                width,
+                                3 if "8" in encoding and "a" not in encoding else 4,
                             )
-                        elif encoding.startswith("bayer_"):
-                            img_np = img_data.reshape((height, width))
-                        elif encoding in ["yuv422", "yuv422_yuy2", "uyvy"]:
-                            img_np = img_data.reshape((height, width, 2))
-                        else:
-                            raise ValueError(f"Unsupported encoding: {encoding}")
-
-                        conversion_code = get_opencv_conversion_code(encoding)
-                        if conversion_code is not None:
-                            image_np = cv2.cvtColor(img_np, conversion_code)
-                        else:
-                            image_np = img_np  # Already in BGR
-
-                    elif schema.name == "sensor_msgs/msg/CompressedImage":
-                        img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
-                        # decode JPEG
-                        image_np = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
-
-                    if image_np is not None:
-                        camera_data.append(
-                            {
-                                "stamp": ros_msg.header.stamp.sec
-                                + ros_msg.header.stamp.nanosec * 1e-9,
-                                "data": image_np,
-                            }
                         )
+                    elif encoding.startswith("bayer_"):
+                        img_np = img_data.reshape((height, width))
+                    elif encoding in ["yuv422", "yuv422_yuy2", "uyvy"]:
+                        img_np = img_data.reshape((height, width, 2))
+                    else:
+                        raise ValueError(f"Unsupported encoding: {encoding}")
+
+                    conversion_code = get_opencv_conversion_code(encoding)
+                    if conversion_code is not None:
+                        image_np = cv2.cvtColor(img_np, conversion_code)
+                    else:
+                        image_np = img_np  # Already in BGR
+
+                elif schema.name == "sensor_msgs/msg/CompressedImage":
+                    img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+                    # decode JPEG
+                    image_np = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
+
+                if image_np is not None:
+                    camera_data.append(
+                        {
+                            "stamp": ros_msg.header.stamp.sec
+                            + ros_msg.header.stamp.nanosec * 1e-9,
+                            "data": image_np,
+                        }
+                    )
 
     return camera_data
 
@@ -330,7 +330,7 @@ def compress_image(
     file,
     output_file,
     topics=None,
-    output_topic_substring="_compressed",
+    compressed_suffix="/compressed",
     remove_uncompressed=False,
 ):
     with open(output_file, "wb") as fo:
@@ -344,9 +344,7 @@ def compress_image(
                 schema_ros["sensor_msgs/msg/CompressedImage"],
             )
 
-            for schema, channel, message, ros_msg in reader.iter_decoded_messages(
-                topics=topics
-            ):
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages():
                 schema.id = next(
                     (
                         s.id
@@ -361,6 +359,9 @@ def compress_image(
                     )
 
                 if schema.name == "sensor_msgs/msg/Image":
+                    if topics is not None and channel.topic not in topics:
+                        continue
+
                     image_np = None
                     encoding = ros_msg.encoding.lower()
                     height = ros_msg.height
@@ -368,7 +369,7 @@ def compress_image(
 
                     img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
 
-                    # Handle mono8, bayer, RGB, BGR, etc.
+                    # handle mono8, bayer, RGB, BGR, etc.
                     if encoding in ["mono8", "mono16"]:
                         img_np = img_data.reshape((height, width))
                     elif encoding in ["bgr8", "rgb8", "rgba8", "bgra8"]:
@@ -408,7 +409,7 @@ def compress_image(
                             "data": encoded_image.tobytes(),
                         }
 
-                        topic_compressed = channel.topic + output_topic_substring
+                        topic_compressed = channel.topic + compressed_suffix
 
                         writer.write_message(
                             topic=topic_compressed,
