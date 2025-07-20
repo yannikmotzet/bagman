@@ -9,6 +9,9 @@ import cv2
 import numpy as np
 from mcap.reader import make_reader
 from mcap_ros2.decoder import DecoderFactory
+from mcap_ros2.writer import Writer as McapWriter
+
+from bagman.utils.schema_ros import schema_ros
 
 
 def get_mcap_info(file: str) -> Dict[str, Any]:
@@ -321,3 +324,111 @@ def read_msg_image(files, topic):
                         )
 
     return camera_data
+
+
+def compress_image(
+    file,
+    output_file,
+    topics=None,
+    output_topic_substring="_compressed",
+    remove_uncompressed=False,
+):
+    with open(output_file, "wb") as fo:
+        writer = McapWriter(fo)
+
+        with open(file, "rb") as fi:
+            reader = make_reader(fi, decoder_factories=[DecoderFactory()])
+
+            schema_compressed_image = writer.register_msgdef(
+                "sensor_msgs/msg/CompressedImage",
+                schema_ros["sensor_msgs/msg/CompressedImage"],
+            )
+
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages(
+                topics=topics
+            ):
+                schema.id = next(
+                    (
+                        s.id
+                        for k, s in writer._writer._Writer__schemas.items()
+                        if s.name == schema.name
+                    ),
+                    None,
+                )
+                if schema.id is None:
+                    schema.id = writer._writer.register_schema(
+                        schema.name, schema.encoding, schema.data
+                    )
+
+                if schema.name == "sensor_msgs/msg/Image":
+                    image_np = None
+                    encoding = ros_msg.encoding.lower()
+                    height = ros_msg.height
+                    width = ros_msg.width
+
+                    img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+
+                    # Handle mono8, bayer, RGB, BGR, etc.
+                    if encoding in ["mono8", "mono16"]:
+                        img_np = img_data.reshape((height, width))
+                    elif encoding in ["bgr8", "rgb8", "rgba8", "bgra8"]:
+                        img_np = img_data.reshape(
+                            (
+                                height,
+                                width,
+                                3 if "8" in encoding and "a" not in encoding else 4,
+                            )
+                        )
+                    elif encoding.startswith("bayer_"):
+                        img_np = img_data.reshape((height, width))
+                    elif encoding in ["yuv422", "yuv422_yuy2", "uyvy"]:
+                        img_np = img_data.reshape((height, width, 2))
+                    else:
+                        raise ValueError(f"Unsupported encoding: {encoding}")
+
+                    conversion_code = get_opencv_conversion_code(encoding)
+                    if conversion_code is not None:
+                        image_np = cv2.cvtColor(img_np, conversion_code)
+                    else:
+                        image_np = img_np  # Already in BGR
+
+                    # compress image
+                    encode_param = [cv2.IMWRITE_JPEG_QUALITY, 90]
+                    result, encoded_image = cv2.imencode(".jpg", image_np, encode_param)
+                    if result:
+                        ros_msg_encoded = {
+                            "header": {
+                                "stamp": {
+                                    "sec": ros_msg.header.stamp.sec,
+                                    "nanosec": ros_msg.header.stamp.nanosec,
+                                },
+                                "frame_id": ros_msg.header.frame_id,
+                            },
+                            "format": "jpeg",
+                            "data": encoded_image.tobytes(),
+                        }
+
+                        topic_compressed = channel.topic + output_topic_substring
+
+                        writer.write_message(
+                            topic=topic_compressed,
+                            schema=schema_compressed_image,
+                            message=ros_msg_encoded,
+                            log_time=message.log_time,
+                            publish_time=message.publish_time,
+                        )
+
+                        if remove_uncompressed:
+                            continue
+
+                # write the original message as well
+                writer.write_message(
+                    topic=channel.topic,
+                    schema=schema,
+                    message=ros_msg,
+                    log_time=message.log_time,
+                    publish_time=message.publish_time,
+                    sequence=message.sequence,
+                )
+
+            writer.finish()
