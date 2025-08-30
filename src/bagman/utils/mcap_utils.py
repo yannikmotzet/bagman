@@ -213,7 +213,9 @@ def read_msg_nav_sat_fix(files, topic, step=1):
         with open(file, "rb") as f:
             reader = make_reader(f, decoder_factories=[DecoderFactory()])
 
-            for schema, channel, _, ros_msg in reader.iter_decoded_messages():
+            for schema, channel, _, ros_msg in reader.iter_decoded_messages(
+                topics=[topic]
+            ):
                 if (
                     channel.topic == topic
                     and schema.name == "sensor_msgs/msg/NavSatFix"
@@ -272,7 +274,7 @@ def read_msg_image(files, topic):
 
     for file in files:
         with open(file, "rb") as f:
-            reader = make_reader(f, decoder_factories=[DecoderFactory()])
+            reader = make_reader(f, decoder_factories=[DecoderFactory(topics=[topic])])
 
             for schema, channel, message, ros_msg in reader.iter_decoded_messages(
                 topics=[topic]
@@ -324,6 +326,117 @@ def read_msg_image(files, topic):
                     )
 
     return camera_data
+
+
+def mcap_to_video(files, topic, video_file, fps=None):
+    """
+    Converts image data from a Camera topic in one or more MCAP files into a video file.
+
+    Args:
+        files (Union[str, List[str]]): The path to the MCAP file or a list of paths to MCAP files.
+        topic (str): The topic to read the Camera messages from.
+        video_file (str): The path to the output video file.
+        fps (int): Frames per second for the output video.
+    """
+    if isinstance(files, str):
+        files = [files]
+
+    # get resolution and fps
+    resolution = None
+    with open(files[0], "rb") as f:
+        reader = make_reader(f, decoder_factories=[DecoderFactory(topics=[topic])])
+
+        if fps is None:
+            summary = reader.get_summary()
+            channel_id = next(
+                (s.id for k, s in summary.channels.items() if s.topic == topic), None
+            )
+            if channel_id is None:
+                raise ValueError(
+                    f"Channel with topic '{topic}' not found in the provided MCAP files."
+                )
+            message_count = summary.statistics.channel_message_counts[channel_id]
+            duration = (
+                summary.statistics.message_end_time
+                - summary.statistics.message_start_time
+            ) / 1e9  # sec
+            fps = int(message_count / duration) + (message_count % duration > 0)
+
+        # get resolution from fist message
+        for schema, channel, message, ros_msg in reader.iter_decoded_messages(
+            topics=[topic]
+        ):
+            if schema.name == "sensor_msgs/msg/Image":
+                resolution = [ros_msg.width, ros_msg.height]
+            elif schema.name == "sensor_msgs/msg/CompressedImage":
+                img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+                img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
+                resolution = [img.shape[1], img.shape[0]]  # width, height
+
+    if resolution is None:
+        raise ValueError(
+            "Resolution could not be determined from the provided MCAP files."
+        )
+
+    # video writer
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(
+        video_file,
+        fourcc,
+        fps,
+        (resolution[0], resolution[1]),
+    )
+
+    for file in files:
+        with open(file, "rb") as f:
+            reader = make_reader(f, decoder_factories=[DecoderFactory()])
+
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages(
+                topics=[topic]
+            ):
+                if channel.topic == topic:
+                    image_np = None
+
+                    if schema.name == "sensor_msgs/msg/Image":
+                        encoding = ros_msg.encoding.lower()
+                        height = ros_msg.height
+                        width = ros_msg.width
+
+                        img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+
+                        # Handle mono8, bayer, RGB, BGR, etc.
+                        if encoding in ["mono8", "mono16"]:
+                            img_np = img_data.reshape((height, width))
+                        elif encoding in ["bgr8", "rgb8", "rgba8", "bgra8"]:
+                            img_np = img_data.reshape(
+                                (
+                                    height,
+                                    width,
+                                    3 if "8" in encoding and "a" not in encoding else 4,
+                                )
+                            )
+                        elif encoding.startswith("bayer_"):
+                            img_np = img_data.reshape((height, width))
+                        elif encoding in ["yuv422", "yuv422_yuy2", "uyvy"]:
+                            img_np = img_data.reshape((height, width, 2))
+                        else:
+                            raise ValueError(f"Unsupported encoding: {encoding}")
+
+                        conversion_code = get_opencv_conversion_code(encoding)
+                        if conversion_code is not None:
+                            image_np = cv2.cvtColor(img_np, conversion_code)
+                        else:
+                            image_np = img_np  # Already in BGR
+
+                    elif schema.name == "sensor_msgs/msg/CompressedImage":
+                        img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+                        # Decode JPEG
+                        image_np = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
+
+                    # Write image to video
+                    if image_np is not None:
+                        out.write(image_np)
+    out.release()
 
 
 def compress_image(

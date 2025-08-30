@@ -5,7 +5,6 @@ import shutil
 import time
 from math import atan2, cos, radians, sin, sqrt
 
-import cv2
 import yaml
 from dotenv import load_dotenv
 from scipy.signal import medfilt
@@ -376,13 +375,16 @@ def generate_video(
 ):
     """
     Generates videos from image data in a recording for multiple topics.
+
     Args:
         recording_path (str): Path to the recording directory.
         config (dict): Configuration dictionary containing necessary paths and settings.
         topics (list of str, optional): List of topics to extract image data from. If None, all topics of type
-                                        "sensor_msgs/msg/Image" or "sensor_msgs/msg/CompressedImage" will be used.
+                                         "sensor_msgs/msg/Image" or "sensor_msgs/msg/CompressedImage" will be used.
+
     Raises:
         FileNotFoundError: If the recording directory does not exist.
+
     Returns:
         None
     """
@@ -390,14 +392,16 @@ def generate_video(
     if not os.path.exists(recording_path):
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
-    metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
-    if metadata is None:
-        raise FileNotFoundError("Metadata file could not be loaded.")
+    try:
+        metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
+    except Exception as e:
+        print(f"Error loading metadata file: {e}")
+        return
 
     if topics is None:
         topics_image = [t["name"] for t in metadata["topics"] if t["type"] in types]
 
-        # check that either Image or ImageCompressed topic is used
+        # check that either Image or CompressedImage topic is used
         # try to use Image topics, if not available use CompressedImage topics
         topics = [t for t in topics_image if not t.endswith("compressed")]
         topics += [
@@ -406,50 +410,30 @@ def generate_video(
             if t.endswith("compressed") and t.replace("compressed", "") not in topics
         ]
 
-    mcap_files = [os.path.join(recording_path, f["path"]) for f in metadata["files"]]
-
     if not topics or len(topics) == 0:
         print("no valid image topics found")
         return
+
+    mcap_files = [os.path.join(recording_path, f["path"]) for f in metadata["files"]]
 
     for topic in topics:
         topic_type = next(
             (t["type"] for t in metadata["topics"] if t["name"] == topic), None
         )
+        fps = next(
+            (t["frequency"] for t in metadata["topics"] if t["name"] == topic), None
+        )
         if topic_type not in types:
             print(f"Topic {topic} is not of type {types}")
             continue
-
-        image_data = mcap_utils.read_msg_image(mcap_files, topic)
-
-        if len(image_data) == 0:
-            print("no image messages found")
-            continue
-
-        fps = (
-            1 / ((image_data[-1]["stamp"] - image_data[0]["stamp"]) / len(image_data))
-            if len(image_data) > 1
-            else 30
-        )
 
         file_name = f"{os.path.basename(recording_path)}{topic.replace('/', '_')}.mp4"
         video_path = os.path.join(recording_path, config["resources_folder"], file_name)
         os.makedirs(os.path.dirname(video_path), exist_ok=True)
 
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(
-            video_path,
-            fourcc,
-            fps,
-            (image_data[0]["data"].shape[1], image_data[0]["data"].shape[0]),
-        )
+        mcap_utils.mcap_to_video(mcap_files, topic, video_path, fps)
 
-        for frame in image_data:
-            out.write(frame["data"])
-
-        out.release()
-
-        # compress video to H.264 with ffmpeg since OpenCV does only support it in manually compiled version
+        # Compress video to H.264 with ffmpeg since OpenCV does only support it in manually compiled version
         # https://github.com/opencv/opencv-python/issues/100#issuecomment-394159998
         compressed_video_path = video_path.replace(".mp4", "_compressed.mp4")
         command = f"ffmpeg -i {video_path} -vcodec libx264 {compressed_video_path}"

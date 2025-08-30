@@ -376,7 +376,7 @@ def main():
             sys.exit(0)
 
     elif args.command == "map":
-        print("Generating mcap plot ...")
+        print("Generating map plot ...")
         if args.local:
             recording_path = args.recording_name
         else:
