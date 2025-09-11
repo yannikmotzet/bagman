@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 import os
 import sys
 
@@ -8,6 +9,8 @@ from dotenv import load_dotenv
 
 from bagman.utils import bagman_utils
 from bagman.utils.db import BagmanDB
+
+logging.basicConfig(level=logging.INFO)
 
 
 def arg_parser():
@@ -166,16 +169,19 @@ def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add
             "Metadata file already exists. Do you want to regenerate the metadata instead of using it from the file?",
             default=True,
         )
-
-    bagman_utils.add_recording(
-        db,
-        recording_path,
-        metadata_file_name=metadata_file_name,
-        use_existing_metadata=use_existing_metadata,
-        override_db=True,
-        sort_by=sort_by,
-        store_metadata_file=True,
-    )
+    try:
+        bagman_utils.add_recording(
+            db,
+            recording_path,
+            metadata_file_name=metadata_file_name,
+            use_existing_metadata=use_existing_metadata,
+            override_db=True,
+            sort_by=sort_by,
+            store_metadata_file=True,
+        )
+    except Exception as e:
+        print(f"Failed to add/update recording: {str(e)}")
+        sys.exit(0)
 
 
 def remove_recording(db, recording_name):

@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import os
 import re
 import shutil
@@ -173,6 +174,7 @@ def add_recording(
     Args:
         recording_path (str): The path to the recording file.
         database (BagmanDB): An instance of the BagmanDB class.
+        metadata_file_name (str, optional): The name of the metadata file. Defaults to "rec_metadata.yaml".
         use_existing_metadata (bool, optional): If True, the existing metadata will be used. Defaults to False.
         override_db (bool, optional): If True, existing records in db with the same path will be updated. Defaults to True.
         sort_by (str, optional): The field by which to sort the database records. Defaults to "start_time".
@@ -183,6 +185,8 @@ def add_recording(
         None
     """
     metadata_file_path = os.path.join(recording_path, metadata_file_name)
+    time_added = time.time()
+    is_metadata_modified = False
 
     # use existing metadata file
     if use_existing_metadata and os.path.exists(metadata_file_path):
@@ -199,28 +203,38 @@ def add_recording(
             store_file=store_metadata_file,
         )
 
-    # check recording name
+    # check that recording name is existing in metadata (required as UID in database)
     if (
         "name" not in rec_metadata.keys()
         or not rec_metadata["name"]
         or rec_metadata["name"] == ""
     ):
-        raise Exception(
-            "Recording name could not be extracted from recording path."
-            "Try to set it manually in the metadata file."
+        logging.warning(
+            "Recording name not found in metadata, setting it to folder name."
         )
+        rec_metadata["name"] = os.path.basename(recording_path)
+        is_metadata_modified = True
+    elif rec_metadata["name"] != os.path.basename(recording_path):
+        logging.warning(
+            "Recording name in metadata does not match folder name, setting it to folder name."
+        )
+        rec_metadata["name"] = os.path.basename(recording_path)
+        is_metadata_modified = True
 
     # ensure that recording path in metadata is storage path and not local path
     if "path" in rec_metadata.keys():
         if rec_metadata["path"] != recording_path:
+            logging.warning(
+                "Recording path in metadata does not match the provided path, updating it."
+            )
             rec_metadata["path"] = recording_path
-            if store_metadata_file:
-                try:
-                    save_yaml_file(rec_metadata, metadata_file_path)
-                except Exception as e:
-                    print(str(e))
+            is_metadata_modified = True
 
-    time_added = time.time()
+    if is_metadata_modified and store_metadata_file:
+        try:
+            save_yaml_file(rec_metadata, metadata_file_path)
+        except Exception as e:
+            raise Exception(f"Error writing metadata file: {e}")
 
     # override existing entry in db
     if database.contains_record("name", rec_metadata["name"]):
@@ -228,6 +242,13 @@ def add_recording(
             return
 
         existing_record = database.get_record("name", rec_metadata["name"])
+
+        # check that path is the same
+        if existing_record["path"] != rec_metadata["path"]:
+            raise Exception(
+                "Found existing recording with same name but different path in database. Please resolve manually."
+            )
+
         if "time_added" in existing_record.keys():
             time_added = existing_record["time_added"]
 
