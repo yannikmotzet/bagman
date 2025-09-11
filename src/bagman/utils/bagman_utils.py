@@ -53,7 +53,7 @@ def load_config(file_path="config.yaml"):
     return replace_env_vars(raw_config)
 
 
-def upload_recording(local_path, storage_path, move=False, verbose=True):
+def upload_recording(local_path, storage_path, move=False):
     """
     Upload a recording to the specified recordings directory.
 
@@ -62,7 +62,6 @@ def upload_recording(local_path, storage_path, move=False, verbose=True):
         storage_path (str): The path to the recordings directory where the file will be uploaded.
         move (bool, optional): If True, the recording file will be moved to the recordings directory.
                                If False, the recording file will be copied. Default is False.
-        verbose (bool, optional): If True, prints the upload progress. Default is True.
 
     Raises:
         FileNotFoundError: If the recordings directory does not exist.
@@ -74,9 +73,8 @@ def upload_recording(local_path, storage_path, move=False, verbose=True):
     if not os.path.exists(local_path):
         raise FileNotFoundError(f"The file {local_path} does not exist.")
 
-    if verbose:
-        print(f"Uploading {local_path} to {storage_path}...")
-        # TODO add progress bar
+    logging.info(f"Uploading {local_path} to {storage_path}...")
+    # TODO add progress bar
     shutil.copy(local_path, storage_path)
     if move:
         # TODO check if upload was successful
@@ -100,13 +98,13 @@ def load_yaml_file(file):
         with open(file, "r") as file:
             return yaml.safe_load(file)
     except FileNotFoundError:
-        print(f"Error: {file} not found")
+        logging.error(f"YAML file {os.path.basename(file)} not found.")
         return None
     except yaml.YAMLError as exc:
-        print(f"Error parsing YAML file {os.path.basename(file)}: {exc}")
+        logging.error(f"Error parsing YAML file {os.path.basename(file)}: {exc}")
         return None
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logging.error(f"An unexpected error occurred: {e}")
         return None
 
 
@@ -155,7 +153,7 @@ def generate_metadata(
         try:
             save_yaml_file(rec_metadata, metadata_file)
         except Exception as e:
-            print(str(e))
+            logging.error(f"Error writing metadata file: {e}")
 
     return rec_metadata
 
@@ -320,20 +318,20 @@ def generate_map(recording_path, config, topic=None, speed=True, html_path=None)
             if t["type"] == "sensor_msgs/msg/NavSatFix"
         ]
         if len(topics_nav_sat_fix) == 0:
-            print("no NavSatFix topic found")
+            logging.warning("No NavSatFix topic found")
             return
         topic = topics_nav_sat_fix[0]
     else:
         # check if topic is valid
         if not any(t["name"] == topic for t in metadata["topics"]):
-            print(f"Topic {topic} not found in metadata")
+            logging.warning(f"Topic {topic} not found in metadata")
             return
 
         topic_type = next(
             (t["type"] for t in metadata["topics"] if t["name"] == topic), None
         )
         if topic_type != "sensor_msgs/msg/NavSatFix":
-            print(f"Topic {topic} is not of type sensor_msgs/msg/NavSatFix")
+            logging.warning(f"Topic {topic} is not of type sensor_msgs/msg/NavSatFix")
             return
 
         # check if topic exsists
@@ -341,14 +339,14 @@ def generate_map(recording_path, config, topic=None, speed=True, html_path=None)
             t["name"] == topic and t["type"] == "sensor_msgs/msg/NavSatFix"
             for t in metadata["topics"]
         ):
-            print(f"Topic {topic} not found in metadata")
+            logging.warning(f"Topic {topic} not found in metadata")
             return
 
     mcap_files = [os.path.join(recording_path, f["path"]) for f in metadata["files"]]
 
     gps_data = mcap_utils.read_msg_nav_sat_fix(mcap_files, topic)
     if len(gps_data) == 0:
-        print("no NavSatFix messages found")
+        logging.warning("No NavSatFix messages found")
         return
 
     if speed:
@@ -416,7 +414,7 @@ def generate_video(
     try:
         metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
     except Exception as e:
-        print(f"Error loading metadata file: {e}")
+        logging.error(f"Error loading metadata file: {e}")
         return
 
     if topics is None:
@@ -432,7 +430,7 @@ def generate_video(
         ]
 
     if not topics or len(topics) == 0:
-        print("no valid image topics found")
+        logging.warning("No valid image topics found")
         return
 
     mcap_files = [os.path.join(recording_path, f["path"]) for f in metadata["files"]]
@@ -445,7 +443,7 @@ def generate_video(
             (t["frequency"] for t in metadata["topics"] if t["name"] == topic), None
         )
         if topic_type not in types:
-            print(f"Topic {topic} is not of type {types}")
+            logging.warning(f"Topic {topic} is not of type {types}")
             continue
 
         file_name = f"{os.path.basename(recording_path)}{topic.replace('/', '_')}.mp4"
@@ -523,12 +521,7 @@ def compress_recording_image(
 
 
 def download_recording(
-    recording_path,
-    destination,
-    metadata_file,
-    additional_files=[],
-    check_md5=True,
-    verbose=True,
+    recording_path, destination, metadata_file, additional_files=[], check_md5=True
 ):
     """
     Downloads a recording and its associated files from a source directory to a destination directory.
@@ -538,7 +531,6 @@ def download_recording(
         metadata_file (str): Name of the metadata file in the source directory that contains information about the recording files.
         additional_files (list, optional): List of additional file names to copy from the source directory. Defaults to an empty list.
         check_md5 (bool, optional): Whether to perform MD5 checksum validation for file integrity. Defaults to True.
-        verbose (bool, optional): Whether to print detailed status messages during the operation. Defaults to True.
     Returns:
         dict: A dictionary containing the download status of each file. Keys are file paths, and values are booleans indicating success (True) or failure (False).
     Raises:
@@ -566,8 +558,7 @@ def download_recording(
         file_path = os.path.join(recording_path, file["path"])
         if not os.path.exists(file_path):
             download_status[file["path"]] = False
-            if verbose:
-                print(f"File {file_path} does not exist, skipping...")
+            logging.warning(f"File {file_path} does not exist, skipping...")
             continue
 
         shutil.copy(file_path, destination_path)
@@ -575,21 +566,19 @@ def download_recording(
         if check_md5:
             if "md5sum" not in file.keys():
                 download_status[file["path"]] = True
-                if verbose:
-                    print(
-                        f"No MD5 checksum found for {file_path}, skipping integrity check."
-                    )
-                    continue
+                logging.warning(
+                    f"No MD5 checksum found for {file_path}, skipping integrity check."
+                )
+                continue
 
             with open(os.path.join(destination_path, file["path"]), "rb") as f:
                 md5_sum_downloaded = hashlib.md5(f.read()).hexdigest()
 
             if md5_sum_downloaded != file["md5sum"]:
                 download_status[file["path"]] = False
-                if verbose:
-                    print(
-                        f"MD5 checksum for {file_path} does not match, file may be corrupted."
-                    )
+                logging.error(
+                    f"MD5 checksum for {file_path} does not match, file may be corrupted."
+                )
 
         download_status[file["path"]] = True
 
@@ -597,8 +586,7 @@ def download_recording(
     for file in additional_files:
         if not os.path.exists(os.path.join(recording_path, file)):
             download_status[file] = False
-            if verbose:
-                print(f"Additional file {file} does not exist, skipping...")
+            logging.warning(f"Additional file {file} does not exist, skipping...")
             continue
         shutil.copy(os.path.join(recording_path, file), destination_path)
         download_status[file] = True

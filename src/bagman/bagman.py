@@ -141,7 +141,7 @@ def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add
 
     if add:
         if not os.path.exists(recording_path):
-            print(
+            logging.error(
                 "Recording does not exist in recordings storage. First upload recording before adding to database."
             )
             sys.exit(0)
@@ -151,11 +151,11 @@ def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add
                 "Recording already exists in database. Do you want to override it?",
                 default=True,
             ):
-                print("Operation cancelled.")
+                logging.info("Recording not added to database.")
                 return
     else:
         if not exists_recording:
-            print(
+            logging.info(
                 "Recording does not exist in database. Use 'add' command to add it first."
             )
             sys.exit(0)
@@ -180,7 +180,7 @@ def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add
             store_metadata_file=True,
         )
     except Exception as e:
-        print(f"Failed to add/update recording: {str(e)}")
+        logging.error(f"Failed to add/update recording: {str(e)}")
         sys.exit(0)
 
 
@@ -188,7 +188,7 @@ def remove_recording(db, recording_name):
     exists_recording = db.contains_record("name", recording_name)
 
     if not exists_recording:
-        print("Recording does not exist in database.")
+        logging.warning("Recording does not exist in database.")
         # TODO check if available in storage
         return
 
@@ -196,7 +196,7 @@ def remove_recording(db, recording_name):
         f"Are you sure you want to delete {recording_name} from the database?",
         default=False,
     ):
-        print("Operation cancelled.")
+        logging.info("Recording not removed from database.")
         sys.exit(0)
 
     db.remove_record("name", recording_name)
@@ -227,7 +227,7 @@ def main():
 
     config_file = args.config
     if not os.path.exists(config_file):
-        print(f"Config file {config_file} does not exist.")
+        logging.error(f"Config file {config_file} does not exist.")
         sys.exit(0)
 
     config = bagman_utils.load_config(config_file)
@@ -242,7 +242,7 @@ def main():
             )
             db_connected = True
         except Exception as e:
-            print(f"Failed to connect to the database: {str(e)}")
+            logging.error("Failed to connect to the database: " + str(e))
 
     if args.command == "upload":
         recording_name = os.path.basename(os.path.normpath(args.recording_path_local))
@@ -252,7 +252,7 @@ def main():
                 "Recording already exists in storage. Do you want to override it?",
                 default=True,
             ):
-                print("Operation cancelled.")
+                logging.info("Recording not uploaded to storage.")
                 sys.exit(0)
 
         try:
@@ -260,10 +260,9 @@ def main():
                 args.recording_path_local,
                 config["recordings_storage"],
                 move=args.move,
-                verbose=True,
             )
         except Exception as e:
-            print(f"Upload failed: {str(e)}")
+            logging.error(f"Upload failed: {str(e)}")
             sys.exit(0)
 
         if args.add:
@@ -287,7 +286,7 @@ def main():
                 True,
             )
         except Exception as e:
-            print(f"Failed to add recording: {str(e)}")
+            logging.error(f"Failed to add recording: {str(e)}")
             sys.exit(0)
 
     elif args.command == "update":
@@ -301,13 +300,14 @@ def main():
                 False,
             )
         except Exception as e:
-            print(f"Failed to update recording: {str(e)}")
+            logging.error(f"Failed to update recording: {str(e)}")
             sys.exit(0)
 
     elif args.command == "delete":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
         if not os.path.exists(recording_path):
-            print("Recording does not exist in storage")
+            logging.warning("Recording does not exist in storage.")
+            sys.exit(0)
         else:
             if click.confirm(
                 f"Are you sure you want to delete {args.recording_name} from storage?",
@@ -315,13 +315,15 @@ def main():
             ):
                 os.remove(recording_path)
                 if os.path.exists(recording_path):
-                    print(f"Failed to delete {args.recording_name} from storage.")
+                    logging.error(
+                        f"Failed to delete {args.recording_name} from storage."
+                    )
                 else:
-                    print(
+                    logging.info(
                         f"{args.recording_name} has been successfully deleted from storage."
                     )
             else:
-                print("Operation cancelled.")
+                logging.info("Recording not deleted from storage.")
 
         if args.remove:
             remove_recording(db, args.recording_name)
@@ -364,7 +366,7 @@ def main():
 
     elif args.command == "metadata":
         if not os.path.exists(args.recording_path_local):
-            print("Recording not found")
+            logging.error("Recording not found.")
             sys.exit(0)
 
         # generate metadata (merge with existing and store to file)
@@ -378,7 +380,7 @@ def main():
                 store_file=True,
             )
         except Exception as e:
-            print(f"Metadata generation failed: {str(e)}")
+            logging.error(f"Metadata generation failed: {str(e)}")
             sys.exit(0)
 
     elif args.command == "map":
@@ -393,7 +395,7 @@ def main():
         try:
             bagman_utils.generate_map(recording_path, config, args.topic)
         except Exception as e:
-            print(f"Map generation failed: {str(e)}")
+            logging.error(f"Map generation failed: {str(e)}")
             sys.exit(0)
 
     elif args.command == "video":
@@ -411,7 +413,7 @@ def main():
             else:
                 bagman_utils.generate_video(recording_path, config)
         except Exception as e:
-            print(f"Video generation failed: {str(e)}")
+            logging.error(f"Video generation failed: {str(e)}")
             sys.exit(0)
 
     elif args.command == "download":
@@ -426,7 +428,7 @@ def main():
                 [config["metadata_file"], "metadata.yaml"],
             )
         except Exception as e:
-            print(f"Download failed: {str(e)}")
+            logging.error(f"Download failed: {str(e)}")
             sys.exit(0)
 
 
