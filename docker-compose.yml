@@ -10,3 +10,4 @@ services:
       - /etc/localtime:/etc/localtime:ro
     environment:
       - DASHBOARD_PORT=${DASHBOARD_PORT}
+      - CONFIG_PATH=${CONFIG_PATH}

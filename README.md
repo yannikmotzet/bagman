@@ -57,6 +57,7 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
     ```sh
     echo "RECORDINGS_STORAGE=$(yq '.recordings_storage' config.yaml)" > .env
     echo "DASHBOARD_PORT=$(yq '.dashboard_port' config.yaml)" >> .env
+    echo "CONFIG_PATH=config.yaml" >> .env
     ```
 
 3. Start the application:

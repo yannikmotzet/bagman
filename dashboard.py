@@ -1,14 +1,12 @@
 import os
 import subprocess
+import sys
 
 import streamlit as st
 import streamlit_authenticator as stauth
 import yaml
 
 from bagman.utils import bagman_utils
-
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.yaml")
 
 
 def get_git_version():
@@ -21,10 +19,10 @@ def get_git_version():
         return ""
 
 
-def main():
+def main(config_path):
     global config
     try:
-        config = bagman_utils.load_config(CONFIG_PATH)
+        config = bagman_utils.load_config(config_path)
     except Exception as e:
         st.error(f"Error loading config: {e}")
         return
@@ -144,4 +142,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # get path to config file from command line arguments
+    if len(sys.argv) > 1:
+        config_path = sys.argv[1]
+    else:
+        # default config file
+        config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+
+    main(config_path)
