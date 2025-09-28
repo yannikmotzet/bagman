@@ -126,7 +126,7 @@ def main():
             db,
             recording_path,
             metadata_file_name=config["metadata_file"],
-            sort_by=config["database_sort_by"],
+            sort_by=config.get("database_sort_by", "start_time"),
         )
         del db
 

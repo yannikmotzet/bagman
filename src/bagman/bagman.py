@@ -236,9 +236,10 @@ def main():
     db_connected = False
     if is_db_required(args):
         load_dotenv()
+        database_name = config.get("database_name", "bagman")
         try:
             db = BagmanDB(
-                config["database_type"], config["database_uri"], config["database_name"]
+                config["database_type"], config["database_uri"], database_name
             )
             db_connected = True
         except Exception as e:
@@ -271,7 +272,7 @@ def main():
                 db,
                 recording_path,
                 config["metadata_file"],
-                config["database_sort_by"],
+                config.get("database_sort_by", "start_time"),
                 True,
             )
 
@@ -282,7 +283,7 @@ def main():
                 db,
                 recording_path,
                 config["metadata_file"],
-                config["database_sort_by"],
+                config.get("database_sort_by", "start_time"),
                 True,
             )
         except Exception as e:
@@ -296,7 +297,7 @@ def main():
                 db,
                 recording_path,
                 config["metadata_file"],
-                config["database_sort_by"],
+                config.get("database_sort_by", "start_time"),
                 False,
             )
         except Exception as e:
