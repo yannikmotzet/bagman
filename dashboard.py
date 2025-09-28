@@ -5,6 +5,7 @@ import sys
 import streamlit as st
 import streamlit_authenticator as stauth
 import yaml
+from streamlit_cookies_controller import CookieController
 
 from bagman.utils import bagman_utils
 
@@ -20,6 +21,7 @@ def get_git_version():
 
 
 def main(config_path):
+    controller = CookieController()
     global config
     try:
         config = bagman_utils.load_config(config_path)
@@ -49,48 +51,6 @@ def main(config_path):
     else:
         if os.path.exists(config["dash_logo_dark"]):
             st.logo(config["dash_logo_dark"], size="large")
-
-    # authentication
-    try:
-        authentification_enabled = "dash_auth_file" in config.keys() and os.path.exists(
-            config["dash_auth_file"]
-        )
-
-        if authentification_enabled:
-            if "authenticator" not in st.session_state:
-                try:
-                    with open(config["dash_auth_file"], "r") as file:
-                        auth_config = yaml.safe_load(file)
-                except FileNotFoundError:
-                    st.error("Authentication file not found.")
-                    st.stop()
-                except yaml.YAMLError:
-                    st.error("Error parsing Authentication config file")
-                    st.stop()
-
-                try:
-                    authenticator = stauth.Authenticate(
-                        auth_config["credentials"],
-                        auth_config["cookie"]["name"],
-                        auth_config["cookie"]["key"],
-                        auth_config["cookie"]["expiry_days"],
-                    )
-                except Exception:
-                    st.error("Error initializing authentication")
-                    st.stop()
-
-                st.session_state.authenticator = authenticator
-
-            try:
-                # Re-invoke an 'unrendered' login widget to maintain session state after reloading page
-                st.session_state.authenticator.login(location="unrendered")
-            except Exception as e:
-                st.error(f"Login error: {e}")
-                st.stop()
-
-    except Exception:
-        st.error("Unexpected error during authentication setup")
-        st.stop()
 
     # navigation
     pages = []
@@ -125,7 +85,15 @@ def main(config_path):
         icon=":material/logout:",
     )
 
-    if authentification_enabled and st.session_state.get("authentication_status"):
+    # authentification
+    authentification_enabled = "dash_auth_file" in config.keys() and os.path.exists(
+        config["dash_auth_file"]
+    )
+
+    if "authenticator" in st.session_state:
+        st.session_state.authenticator.login(location="unrendered")
+
+    if controller.get("cookie_auth"):
         pages = [page_recording, page_jobs, page_upload, page_logout]
     else:
         if "recordings" not in config["dash_auth_pages"]:
@@ -138,6 +106,32 @@ def main(config_path):
             pages.append(page_login)
 
     pg = st.navigation(pages, position=config["dash_position_navigation"])
+
+    if authentification_enabled and "authenticator" not in st.session_state:
+        print("set up authentificator")
+        try:
+            with open(config["dash_auth_file"], "r") as file:
+                auth_config = yaml.safe_load(file)
+        except FileNotFoundError:
+            st.error("Authentication file not found.")
+            st.stop()
+        except yaml.YAMLError:
+            st.error("Error parsing Authentication config file")
+            st.stop()
+
+        try:
+            authenticator = stauth.Authenticate(
+                auth_config["credentials"],
+                auth_config["cookie"]["name"],
+                auth_config["cookie"]["key"],
+                auth_config["cookie"]["expiry_days"],
+            )
+        except Exception:
+            st.error("Error initializing authentication")
+            st.stop()
+
+        st.session_state.authenticator = authenticator
+
     pg.run()
 
 

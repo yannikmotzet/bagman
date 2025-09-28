@@ -106,6 +106,7 @@ async def trigger_flow_run(deployment_id: UUID, parameters: dict = {}):
 
 
 def main():
+    st.session_state.authenticator.login(location="unrendered")
     st.header("Jobs")
 
     # config prefect connection
@@ -126,7 +127,7 @@ def main():
     # check prefect connection
     result = asyncio.run(check_connection())
     if not result:
-        st.error(f"Error connecting to Prefect server: {result['error']}")
+        st.error("no connection to Prefect server")
         st.stop()
 
     # overview of running and finished jobs

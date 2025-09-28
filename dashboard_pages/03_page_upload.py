@@ -11,6 +11,7 @@ CONFIG_PATH = os.path.join(PROJECT_ROOT, "..", "config.yaml")
 
 
 def main():
+    st.session_state.authenticator.login(location="unrendered")
     st.header("Upload")
 
     try:

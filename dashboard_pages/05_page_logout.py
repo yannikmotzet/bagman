@@ -1,7 +1,9 @@
 import streamlit as st
+from streamlit_cookies_controller import CookieController
 
 
 def main():
+    controller = CookieController()
     st.write("Are you sure you want to log out?")
 
     with st.container():
@@ -13,6 +15,7 @@ def main():
             with btn_yes:
                 if st.button("✅ Yes", key="confirm_logout_yes"):
                     if st.session_state.get("authentication_status"):
+                        controller.set("cookie_auth", False)
                         st.session_state.authenticator.logout(location="unrendered")
                         # login required to maintain session state
                         st.session_state.authenticator.login(location="unrendered")
