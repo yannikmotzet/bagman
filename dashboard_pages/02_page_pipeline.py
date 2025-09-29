@@ -6,12 +6,10 @@ import pandas as pd
 import streamlit as st
 from prefect.client.orchestration import get_client
 
-from bagman.utils import bagman_utils
 from bagman.utils.db import BagmanDB
 from dashboard_pages import dashboard_utils
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-CONFIG_PATH = os.path.join(PROJECT_ROOT, "..", "config.yaml")
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 async def check_connection():
@@ -50,7 +48,29 @@ async def get_prefect_deployments():
             print("Ensure the PREFECT_API_URL is correct and the server is running.")
 
 
-async def list_flow_runs(start_time=None):
+async def get_prefect_flows():
+    flows = []
+    async with get_client() as client:
+        try:
+            response = await client.read_flows()
+
+            for flow in response:
+                flows.append(
+                    {
+                        "flow_id": str(flow.id),
+                        "name": flow.name,
+                    }
+                )
+
+            df = pd.DataFrame(flows)
+            return df
+
+        except Exception as e:
+            print(f"Error connecting to Prefect server: {e}")
+            print("Ensure the PREFECT_API_URL is correct and the server is running.")
+
+
+async def get_prefect_runs(start_time=None, deployments=None):
     flow_run_data = []
 
     async with get_client() as client:
@@ -70,16 +90,24 @@ async def list_flow_runs(start_time=None):
                     duration = (
                         run.end_time - run.start_time
                     ).total_seconds() / 60.0  # minutes
+
+                deployment = str(run.deployment_id)
+                if deployments is not None:
+                    for index, row in deployments.iterrows():
+                        if row["deployment_id"] == str(run.deployment_id):
+                            deployment = row["name"]
+
                 flow_run_data.append(
                     {
-                        "run_id": str(run.id),
-                        "run name": run.name,
-                        "flow id": str(run.flow_id),
-                        "parameters": run.parameters,
+                        # "run_id": str(run.id),
+                        "run": run.name,
+                        "deployment": deployment,
+                        "recording_name": run.parameters.get("recording_name", "N/A"),
                         "state": run.state_name,
                         "start_time": run.start_time,
                         "end_time": run.end_time,
                         "duration": duration,
+                        "url": f'{st.session_state["config"]["prefect_api_url"].replace("/api", "")}/runs/flow-run/{run.id}',
                     }
                 )
 
@@ -91,7 +119,7 @@ async def list_flow_runs(start_time=None):
             print("Ensure the PREFECT_API_URL is correct and the server is running.")
 
 
-async def trigger_flow_run(deployment_id: UUID, parameters: dict = {}):
+async def create_prefect_run(deployment_id: UUID, parameters: dict = {}):
     async with get_client() as client:
         flow_run = await client.create_flow_run_from_deployment(
             deployment_id=deployment_id,
@@ -106,17 +134,10 @@ async def trigger_flow_run(deployment_id: UUID, parameters: dict = {}):
 
 
 def main():
-    st.header("Jobs")
+    st.header("Pipeline")
 
-    # config prefect connection
-    try:
-        config = bagman_utils.load_config(CONFIG_PATH)
-    except Exception as e:
-        st.error(f"Error loading config: {e}")
-        st.stop()
-
-    if "prefect_api_url" in config.keys():
-        os.environ["PREFECT_API_URL"] = config["prefect_api_url"]
+    if "prefect_api_url" in st.session_state["config"].keys():
+        os.environ["PREFECT_API_URL"] = st.session_state["config"]["prefect_api_url"]
     else:
         st.error(
             "Prefect API URL not found in config. Please check your configuration."
@@ -126,42 +147,73 @@ def main():
     # check prefect connection
     result = asyncio.run(check_connection())
     if not result:
-        st.error(f"Error connecting to Prefect server: {result['error']}")
+        st.error("Error connecting to Prefect server.")
         st.stop()
 
-    # overview of running and finished jobs
-    st.subheader("Job Overview")
+    # get available deployments
     try:
-        runs = asyncio.run(list_flow_runs())
+        deployments = asyncio.run(get_prefect_deployments())
+    except Exception as e:
+        st.error(f"Error fetching flows: {e}")
+        st.stop()
+
+    # overview of runs
+    st.subheader("Runs")
+    try:
+        runs = asyncio.run(get_prefect_runs(deployments=deployments))
+
+        for index, row in runs.iterrows():
+            if row["state"] == "Completed":
+                runs.at[index, "state"] = "✅ Completed"
+            elif row["state"] == "Failed":
+                runs.at[index, "state"] = "❌ Failed"
+            elif row["state"] == "Crashed":
+                runs.at[index, "state"] = "❌ Crashed"
+            elif row["state"] == "Cancelled":
+                runs.at[index, "state"] = "🚫 Cancelled"
+            elif row["state"] == "Running":
+                runs.at[index, "state"] = "🏃 Running"
+            elif row["state"] == "Late":
+                runs.at[index, "state"] = "⏳ Late"
+            else:
+                runs.at[index, "state"] = f"❓ {row['state']}"
+
         st.dataframe(
             runs,
             use_container_width=True,
             height=250,
             hide_index=True,
             on_select="ignore",
+            column_config={
+                "url": st.column_config.LinkColumn(
+                    "url", display_text=r".*/([0-9a-fA-F-]{36})$"
+                )
+            },
         )
     except Exception as e:
         st.error(f"Error fetching runs: {e}")
 
-    # allow user to trigger a flow run
-    st.subheader("Start Job")
+    # allow user to trigger a run
+    st.subheader("Start Run")
     try:
         with st.spinner("Connecting to database..."):
             # the abspath check is required to use the recordings_example.json which has a relative path
-            if config["database_type"] == "json":
-                database_path = config["database_uri"]
+            if st.session_state["config"]["database_type"] == "json":
+                database_path = st.session_state["config"]["database_uri"]
                 if not os.path.isabs(database_path):
                     database_path = os.path.join(PROJECT_ROOT, database_path)
                 db = BagmanDB(
-                    config["database_type"], database_path, config["database_name"]
+                    st.session_state["config"]["database_type"],
+                    database_path,
+                    st.session_state["config"]["database_name"],
                 )
             else:
                 db = BagmanDB(
-                    config["database_type"],
-                    config["database_uri"],
-                    config["database_name"],
+                    st.session_state["config"]["database_type"],
+                    st.session_state["config"]["database_uri"],
+                    st.session_state["config"]["database_name"],
                 )
-            data = dashboard_utils.load_recordings(db, config)
+            data = dashboard_utils.load_recordings(db, st.session_state["config"])
     except Exception:
         st.error("⚠️ no connection to database")
         return
@@ -197,19 +249,18 @@ def main():
     # checkbox for each deployment
     selected_deployments = []
     for index, row in deployments.iterrows():
-        deployment_id = row["deployment_id"]
         deployment_name = row["name"]
         if st.checkbox(f"{deployment_name}"):
             selected_deployments.append(row)
 
     # trigger flows if button is clicked
-    if st.button("Start flows"):
+    if st.button("Start run"):
         if not selected_deployments:
-            st.warning("No flows selected.")
+            st.warning("No deployments selected.")
         elif len(selected_recs) == 0:
             st.warning("No recordings selected.")
         else:
-            st.info("Starting selected flows...")
+            st.info("Starting selected deployments...")
 
             for i in range(len(selected_recs)):
                 rec_name = data.iloc[selected_recs[i]]["name"]
@@ -219,13 +270,21 @@ def main():
                         deployment_id = UUID(deployment["deployment_id"])
                         deployment_name = deployment["name"]
 
-                        # TODO check parameter
+                        if not list(deployment["parameters"].keys()) == [
+                            "recording_name",
+                            "config_file",
+                        ]:
+                            st.warning(
+                                f"Deployment {deployment_name} has unexpected parameters: {deployment['parameters'].keys()}. Expected parameters are 'recording_name' and 'config_file'. Skipping."
+                            )
+                            continue
+
                         flow_run = asyncio.run(
-                            trigger_flow_run(
+                            create_prefect_run(
                                 deployment_id,
                                 parameters={
                                     "recording_name": rec_name,
-                                    "config_file": CONFIG_PATH,
+                                    "config_file": st.session_state["config_path"],
                                 },
                             )
                         )

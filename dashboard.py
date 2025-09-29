@@ -25,6 +25,7 @@ def main(config_path):
     except Exception as e:
         st.error(f"Error loading config: {e}")
         return
+    st.session_state["config_path"] = config_path
     st.session_state["config"] = config
 
     st.set_page_config(
@@ -117,10 +118,10 @@ def main(config_path):
         url_path="recordings",
         icon=":material/storage:",
     )
-    streamlit_pages["jobs"] = st.Page(
-        "dashboard_pages/02_page_jobs.py",
-        title="Jobs",
-        url_path="jobs",
+    streamlit_pages["pipeline"] = st.Page(
+        "dashboard_pages/02_page_pipeline.py",
+        title="Pipeline",
+        url_path="pipeline",
         icon=":material/checklist:",
     )
     streamlit_pages["upload"] = st.Page(
@@ -143,7 +144,7 @@ def main(config_path):
     )
 
     # show pages based on authentication status
-    pages_all = ["recordings", "jobs", "upload"]
+    pages_all = ["recordings", "pipeline", "upload"]
     pages_auth = st.session_state["config"].get("dash_auth_pages", pages_all)
     pages_no_auth = [page for page in pages_all if page not in pages_auth]
     pages_navigation = []
@@ -165,6 +166,9 @@ def main(config_path):
         if authentification_enabled:
             pages_navigation.append(streamlit_pages["login"])
 
+    if len(pages_navigation) == 0:
+        st.error("No pages available to display.")
+        st.stop()
     pg = st.navigation(
         pages_navigation,
         position=st.session_state["config"].get("dash_position_navigation", None),

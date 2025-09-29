@@ -30,7 +30,7 @@ dash_upload_files: #['mcap', 'json', 'yaml', 'txt']  list with allowed file type
 dash_allow_path_link: False # allow to open link of path in new tab (e.g. for links starting with ftp://)
 # dash_timezone: UTC # specify the timezone to convert datetime columns to (e.g., UTC, Europe/Zurich, America/Los_Angeles). Leave commented to use the system's local timezone.
 # dash_auth_file: .streamlit/authentification.yaml # path to streamlit-authenticator config file, uncomment to disable authentification (https://github.com/mkhorasani/Streamlit-Authenticator?tab=readme-ov-file#3-creating-a-config-file)
-dash_auth_pages: [] # select the pages  ("recordings", "jobs", "upload") which require authentication
+dash_auth_pages: [] # select the pages  ("recordings", "pipeline", "upload") which require authentication
 dash_position_navigation: sidebar # position of navigation bar, can be 'sidebar' or 'top'
 
 # pipeline settings
