@@ -20,16 +20,16 @@ def get_git_version():
 
 
 def main(config_path):
-    global config
     try:
         config = bagman_utils.load_config(config_path)
     except Exception as e:
         st.error(f"Error loading config: {e}")
         return
+    st.session_state["config"] = config
 
     st.set_page_config(
-        page_title=config["dash_name"],
-        page_icon=config["dash_icon"],
+        page_title=st.session_state["config"].get("dash_name", None),
+        page_icon=st.session_state["config"].get("dash_icon", None),
         layout="wide",
         initial_sidebar_state="expanded",
         menu_items={
@@ -40,26 +40,43 @@ def main(config_path):
             )
         },
     )
-    st.title(config["dash_icon"] + " " + config["dash_name"])
+
+    title = ""
+    if "dash_icon" in st.session_state["config"].keys():
+        title += st.session_state["config"]["dash_icon"] + " "
+    if "dash_name" in st.session_state["config"].keys():
+        title += st.session_state["config"]["dash_name"]
+    if title != "":
+        st.title(title)
 
     # logo
     if st.context.theme.type == "light":
-        if os.path.exists(config["dash_logo_light"]):
-            st.logo(config["dash_logo_light"], size="large")
+        if "dash_logo_light" in st.session_state["config"].keys() and os.path.exists(
+            st.session_state["config"]["dash_logo_light"]
+        ):
+            st.logo(
+                st.session_state["config"].get("dash_logo_light", None), size="large"
+            )
     else:
-        if os.path.exists(config["dash_logo_dark"]):
-            st.logo(config["dash_logo_dark"], size="large")
+        if "dash_logo_dark" in st.session_state["config"].keys() and os.path.exists(
+            st.session_state["config"]["dash_logo_dark"]
+        ):
+            st.logo(st.session_state["config"].get("dash_logo_dark"), size="large")
 
     # authentication
     try:
-        authentification_enabled = "dash_auth_file" in config.keys() and os.path.exists(
-            config["dash_auth_file"]
+        authentification_enabled = "dash_auth_file" in st.session_state[
+            "config"
+        ].keys() and os.path.exists(
+            st.session_state["config"].get("dash_auth_file", None)
         )
 
         if authentification_enabled:
             if "authenticator" not in st.session_state:
                 try:
-                    with open(config["dash_auth_file"], "r") as file:
+                    with open(
+                        st.session_state["config"].get("dash_auth_file", None), "r"
+                    ) as file:
                         auth_config = yaml.safe_load(file)
                 except FileNotFoundError:
                     st.error("Authentication file not found.")
@@ -93,51 +110,65 @@ def main(config_path):
         st.stop()
 
     # navigation
-    pages = []
-    page_recording = st.Page(
+    streamlit_pages = {}
+    streamlit_pages["recordings"] = st.Page(
         "dashboard_pages/01_page_recordings.py",
         title="Recordings",
         url_path="recordings",
         icon=":material/storage:",
     )
-    page_jobs = st.Page(
+    streamlit_pages["jobs"] = st.Page(
         "dashboard_pages/02_page_jobs.py",
         title="Jobs",
         url_path="jobs",
         icon=":material/checklist:",
     )
-    page_upload = st.Page(
+    streamlit_pages["upload"] = st.Page(
         "dashboard_pages/03_page_upload.py",
         title="Upload",
         url_path="upload",
         icon=":material/backup:",
     )
-    page_login = st.Page(
+    streamlit_pages["login"] = st.Page(
         "dashboard_pages/04_page_login.py",
         title="Login",
         url_path="login",
         icon=":material/login:",
     )
-    page_logout = st.Page(
+    streamlit_pages["logout"] = st.Page(
         "dashboard_pages/05_page_logout.py",
         title="Logout",
         url_path="logout",
         icon=":material/logout:",
     )
 
-    if authentification_enabled and st.session_state.get("authentication_status"):
-        pages = [page_recording, page_jobs, page_upload, page_logout]
-    else:
-        if "recordings" not in config["dash_auth_pages"]:
-            pages.append(page_recording)
-        if "jobs" not in config["dash_auth_pages"]:
-            pages.append(page_jobs)
-        if "upload" not in config["dash_auth_pages"]:
-            pages.append(page_upload)
-        if authentification_enabled:
-            pages.append(page_login)
+    # show pages based on authentication status
+    pages_all = ["recordings", "jobs", "upload"]
+    pages_auth = st.session_state["config"].get("dash_auth_pages", pages_all)
+    pages_no_auth = [page for page in pages_all if page not in pages_auth]
+    pages_navigation = []
 
-    pg = st.navigation(pages, position=config["dash_position_navigation"])
+    if authentification_enabled and st.session_state.get("authentication_status"):
+        # add pages which do not require authentication
+        pages_navigation.extend(streamlit_pages[p] for p in pages_no_auth)
+
+        # add pages which require authentication
+        pages_navigation.extend(
+            streamlit_pages[p] for p in pages_auth if p in streamlit_pages
+        )
+        pages_navigation.append(streamlit_pages["logout"])
+    else:
+        # not logged in or auth disabled: show non-auth pages and login if needed
+        pages_navigation.extend(
+            streamlit_pages[p] for p in pages_no_auth if p in streamlit_pages
+        )
+        if authentification_enabled:
+            pages_navigation.append(streamlit_pages["login"])
+
+    pg = st.navigation(
+        pages_navigation,
+        position=st.session_state["config"].get("dash_position_navigation", None),
+    )
     pg.run()
 
 
