@@ -464,6 +464,19 @@ def generate_video(
 def compress_recording_image(
     recording_path, config, compressed_suffix="/compressed", remove_uncompressed=False
 ):
+    """
+    Compresses sensor_msgs/msg/Image messages in a recording.
+    Args:
+        recording_path (str): Path to the recording directory.
+        config (dict): Configuration dictionary containing necessary paths and settings.
+        compressed_suffix (str, optional): Suffix to identify compressed image topics. Defaults to "/compressed".
+        remove_uncompressed (bool, optional): If True, uncompressed image topics will be removed after compression. Defaults to False.
+    Raises:
+        FileNotFoundError: If the recording directory does not exist.
+        Exception: If there is an error during the compression process.
+    Returns:
+        None
+    """
     if not os.path.exists(recording_path):
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
@@ -482,8 +495,8 @@ def compress_recording_image(
         if t["type"] == "sensor_msgs/msg/CompressedImage"
     ]
 
-    topics_compressed_image_set = set(topics_compressed_image)
     # keep only image topics that don't have a corresponding compressed topic
+    topics_compressed_image_set = set(topics_compressed_image)
     uncompressed_image_topics = [
         topic
         for topic in topics_image
@@ -507,17 +520,14 @@ def compress_recording_image(
         raise Exception(f"Error during video compression: {e}")
 
     # replace the original files with compressed ones
-    generate_metadata(compressed_folder, config["metadata_file"])
     for file in mcap_files:
         original_file = os.path.join(recording_path, file)
         compressed_file = os.path.join(compressed_folder, file)
         # TODO check if compressed_file contains valid data
         if os.path.exists(compressed_file):
-            os.replace(compressed_file, original_file)
-    os.replace(
-        os.path.join(compressed_folder, config["metadata_file"]),
-        os.path.join(recording_path, config["metadata_file"]),
-    )
+            shutil.move(compressed_file, original_file)
+        os.rmdir(compressed_folder)
+    generate_metadata(recording_path, config["metadata_file"])
 
 
 def download_recording(

@@ -1,3 +1,4 @@
+import copy
 import glob
 import hashlib
 import os
@@ -274,7 +275,7 @@ def read_msg_image(files, topic):
 
     for file in files:
         with open(file, "rb") as f:
-            reader = make_reader(f, decoder_factories=[DecoderFactory(topics=[topic])])
+            reader = make_reader(f, decoder_factories=[DecoderFactory()])
 
             for schema, channel, message, ros_msg in reader.iter_decoded_messages(
                 topics=[topic]
@@ -341,11 +342,12 @@ def mcap_to_video(files, topic, video_file, fps=None):
     if isinstance(files, str):
         files = [files]
 
-    # get resolution and fps
+    # get fps and resolution
     resolution = None
     with open(files[0], "rb") as f:
-        reader = make_reader(f, decoder_factories=[DecoderFactory(topics=[topic])])
+        reader = make_reader(f, decoder_factories=[DecoderFactory()])
 
+        # calculate fps from message count and duration
         if fps is None:
             summary = reader.get_summary()
             channel_id = next(
@@ -362,7 +364,7 @@ def mcap_to_video(files, topic, video_file, fps=None):
             ) / 1e9  # sec
             fps = int(message_count / duration) + (message_count % duration > 0)
 
-        # get resolution from fist message
+        # read first message to get resolution
         for schema, channel, message, ros_msg in reader.iter_decoded_messages(
             topics=[topic]
         ):
@@ -372,6 +374,7 @@ def mcap_to_video(files, topic, video_file, fps=None):
                 img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
                 img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
                 resolution = [img.shape[1], img.shape[0]]  # width, height
+            break
 
     if resolution is None:
         raise ValueError(
@@ -458,7 +461,8 @@ def compress_image(
             )
 
             for schema, channel, message, ros_msg in reader.iter_decoded_messages():
-                schema.id = next(
+                schema_updated = copy.copy(schema)
+                schema_updated.id = next(
                     (
                         s.id
                         for k, s in writer._writer._Writer__schemas.items()
@@ -466,8 +470,8 @@ def compress_image(
                     ),
                     None,
                 )
-                if schema.id is None:
-                    schema.id = writer._writer.register_schema(
+                if schema_updated.id is None:
+                    schema_updated.id = writer._writer.register_schema(
                         schema.name, schema.encoding, schema.data
                     )
 
@@ -535,10 +539,10 @@ def compress_image(
                         if remove_uncompressed:
                             continue
 
-                # write the original message as well
+                # write other messages as is
                 writer.write_message(
                     topic=channel.topic,
-                    schema=schema,
+                    schema=schema_updated,
                     message=ros_msg,
                     log_time=message.log_time,
                     publish_time=message.publish_time,
