@@ -103,6 +103,10 @@ git clone https://github.com/yannikmotzet/bagman.git && cd bagman
                             path to config file, default: config.yaml in current directory
     ```
 
+### User Authentication
+
+To enable user authentication for the dashboard, create a YAML configuration file as described in the [Streamlit-Authenticator documentation](https://github.com/mkhorasani/Streamlit-Authenticator?tab=readme-ov-file#3-creating-a-config-file). Save this file and reference it in your `config.yaml` under the `dash_auth_file` field. In the `dash_auth_pages` field you can specify the pages that require authentication.
+
 ### Database Integration
 
 Currently, the following databases are supported:
@@ -161,11 +165,41 @@ DATABASE_USER=your_username
 DATABASE_PASSWORD=your_password
 ```
 
-### Notes
+#### Notes
 - Ensure the `.env` file is located in the same directory as your application.
 - The application will automatically load the environment variables from the `.env` file during runtime.
 - Using username and password inside the database URL is not recommended for security reasons.
 - For more details, refer to the documentation of the respective database.
+
+
+### Prefect Integration
+
+To integrate Prefect 3 with Bagman, follow these steps:
+
+1. Start the Prefect server:
+    ```sh
+    prefect server start
+    ```
+
+2. Create a deployment:
+    ```sh
+    prefect deploy
+    ```
+
+    This command will automatically detect the `pipeline/flow_bagman.py:flow_default` flow. Assign it a name, such as `default`. When prompted to create a work pool, select `process` as the type and provide a name, e.g., `work_pool`.
+
+3. Start the work pool:
+    ```sh
+    prefect worker start --pool "work_pool"
+    ```
+
+4. Add the `PREFECT_API_URL` environment variable (is printed in terminal when starting Prefect server) under the `prefect_api_url` field in `config.yaml` to enable the pipeline dashboard page to interact with the Prefect server.
+
+<p align="center">
+    <img src="resources/bagman_pipeline_screenshot.png" alt="Bagman screenshot" width="800"/>
+</p>
+
+For additional details, refer to the [Prefect documentation](https://docs.prefect.io/).
 
 
 ## Contributing

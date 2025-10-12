@@ -1,4 +1,5 @@
 config.yaml
+*authentification.yaml
 
 # IDEs
 .vscode/
