@@ -179,9 +179,11 @@ def main(config_path):
 if __name__ == "__main__":
     # get path to config file from command line arguments
     if len(sys.argv) > 1:
-        config_path = sys.argv[1]
+        config_path = os.path.abspath(sys.argv[1])
     else:
         # default config file
-        config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+        config_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "config.yaml"
+        )
 
     main(config_path)
