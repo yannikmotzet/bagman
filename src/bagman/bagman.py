@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 import os
 import sys
 
@@ -8,6 +9,8 @@ from dotenv import load_dotenv
 
 from bagman.utils import bagman_utils
 from bagman.utils.db import BagmanDB
+
+logging.basicConfig(level=logging.INFO)
 
 
 def arg_parser():
@@ -34,6 +37,19 @@ def arg_parser():
     )
     upload_parser.add_argument(
         "-a", "--add", action="store_true", help="add recording to database"
+    )
+
+    # download command
+    download_parser = subparsers.add_parser(
+        "download", help="download a recording from storage to local machine"
+    )
+    download_parser.add_argument(
+        "recording_name", help="name of the recording to download"
+    )
+    download_parser.add_argument(
+        "destination",
+        default=".",
+        help="destination path to download the recording (default: current directory)",
     )
 
     # add command
@@ -83,6 +99,40 @@ def arg_parser():
         "recording_path_local", help="path to the local recording"
     )
 
+    # map plot command
+    map_parser = subparsers.add_parser(
+        "map", help="generate a map plot from GNSS data in the recording"
+    )
+    map_parser.add_argument("recording_name", help="name of the recording")
+    map_parser.add_argument(
+        "-t",
+        "--topic",
+        default=None,
+        help="specify a topic for the operation (optional)",
+    )
+    map_parser.add_argument(
+        "--local",
+        action="store_true",
+        help="use local recording instead of storage",
+    )
+
+    # video file command
+    video_parser = subparsers.add_parser(
+        "video", help="generate a video file from the camera data in the recording"
+    )
+    video_parser.add_argument("recording_name", help="name of the recording")
+    video_parser.add_argument(
+        "-t",
+        "--topic",
+        default=None,
+        help="specify a topic for the operation (optional)",
+    )
+    video_parser.add_argument(
+        "--local",
+        action="store_true",
+        help="use local recording instead of storage",
+    )
+
     return parser
 
 
@@ -91,7 +141,7 @@ def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add
 
     if add:
         if not os.path.exists(recording_path):
-            print(
+            logging.error(
                 "Recording does not exist in recordings storage. First upload recording before adding to database."
             )
             sys.exit(0)
@@ -101,11 +151,11 @@ def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add
                 "Recording already exists in database. Do you want to override it?",
                 default=True,
             ):
-                print("Operation cancelled.")
+                logging.info("Recording not added to database.")
                 return
     else:
         if not exists_recording:
-            print(
+            logging.info(
                 "Recording does not exist in database. Use 'add' command to add it first."
             )
             sys.exit(0)
@@ -119,23 +169,26 @@ def add_or_update_recording(db, recording_path, metadata_file_name, sort_by, add
             "Metadata file already exists. Do you want to regenerate the metadata instead of using it from the file?",
             default=True,
         )
-
-    bagman_utils.add_recording(
-        db,
-        recording_path,
-        metadata_file_name=metadata_file_name,
-        use_existing_metadata=use_existing_metadata,
-        override_db=True,
-        sort_by=sort_by,
-        store_metadata_file=True,
-    )
+    try:
+        bagman_utils.add_recording(
+            db,
+            recording_path,
+            metadata_file_name=metadata_file_name,
+            use_existing_metadata=use_existing_metadata,
+            override_db=True,
+            sort_by=sort_by,
+            store_metadata_file=True,
+        )
+    except Exception as e:
+        logging.error(f"Failed to add/update recording: {str(e)}")
+        sys.exit(0)
 
 
 def remove_recording(db, recording_name):
     exists_recording = db.contains_record("name", recording_name)
 
     if not exists_recording:
-        print("Recording does not exist in database.")
+        logging.warning("Recording does not exist in database.")
         # TODO check if available in storage
         return
 
@@ -143,10 +196,26 @@ def remove_recording(db, recording_name):
         f"Are you sure you want to delete {recording_name} from the database?",
         default=False,
     ):
-        print("Operation cancelled.")
+        logging.info("Recording not removed from database.")
         sys.exit(0)
 
     db.remove_record("name", recording_name)
+
+
+def is_db_required(args):
+    return args.command not in {
+        "upload",
+        "delete",
+        "metadata",
+        "map",
+        "video",
+        "download",
+    } or (
+        args.command == "upload"
+        and args.add
+        or args.command == "delete"
+        and args.remove
+    )
 
 
 def main():
@@ -158,20 +227,23 @@ def main():
 
     config_file = args.config
     if not os.path.exists(config_file):
-        print(f"Config file {config_file} does not exist.")
+        logging.error(f"Config file {config_file} does not exist.")
         sys.exit(0)
 
     config = bagman_utils.load_config(config_file)
 
-    load_dotenv()
+    # only load db if required
     db_connected = False
-    try:
-        db = BagmanDB(
-            config["database_type"], config["database_uri"], config["database_name"]
-        )
-        db_connected = True
-    except Exception as e:
-        print(f"Failed to connect to the database: {str(e)}")
+    if is_db_required(args):
+        load_dotenv()
+        database_name = config.get("database_name", "bagman")
+        try:
+            db = BagmanDB(
+                config["database_type"], config["database_uri"], database_name
+            )
+            db_connected = True
+        except Exception as e:
+            logging.error("Failed to connect to the database: " + str(e))
 
     if args.command == "upload":
         recording_name = os.path.basename(os.path.normpath(args.recording_path_local))
@@ -181,7 +253,7 @@ def main():
                 "Recording already exists in storage. Do you want to override it?",
                 default=True,
             ):
-                print("Operation cancelled.")
+                logging.info("Recording not uploaded to storage.")
                 sys.exit(0)
 
         try:
@@ -189,10 +261,9 @@ def main():
                 args.recording_path_local,
                 config["recordings_storage"],
                 move=args.move,
-                verbose=True,
             )
         except Exception as e:
-            print(f"Upload failed: {str(e)}")
+            logging.error(f"Upload failed: {str(e)}")
             sys.exit(0)
 
         if args.add:
@@ -201,34 +272,43 @@ def main():
                 db,
                 recording_path,
                 config["metadata_file"],
-                config["database_sort_by"],
+                config.get("database_sort_by", "start_time"),
                 True,
             )
 
     elif args.command == "add":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_or_update_recording(
-            db,
-            recording_path,
-            config["metadata_file"],
-            config["database_sort_by"],
-            True,
-        )
+        try:
+            add_or_update_recording(
+                db,
+                recording_path,
+                config["metadata_file"],
+                config.get("database_sort_by", "start_time"),
+                True,
+            )
+        except Exception as e:
+            logging.error(f"Failed to add recording: {str(e)}")
+            sys.exit(0)
 
     elif args.command == "update":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
-        add_or_update_recording(
-            db,
-            recording_path,
-            config["metadata_file"],
-            config["database_sort_by"],
-            False,
-        )
+        try:
+            add_or_update_recording(
+                db,
+                recording_path,
+                config["metadata_file"],
+                config.get("database_sort_by", "start_time"),
+                False,
+            )
+        except Exception as e:
+            logging.error(f"Failed to update recording: {str(e)}")
+            sys.exit(0)
 
     elif args.command == "delete":
         recording_path = os.path.join(config["recordings_storage"], args.recording_name)
         if not os.path.exists(recording_path):
-            print("Recording does not exist in storage")
+            logging.warning("Recording does not exist in storage.")
+            sys.exit(0)
         else:
             if click.confirm(
                 f"Are you sure you want to delete {args.recording_name} from storage?",
@@ -236,13 +316,15 @@ def main():
             ):
                 os.remove(recording_path)
                 if os.path.exists(recording_path):
-                    print(f"Failed to delete {args.recording_name} from storage.")
+                    logging.error(
+                        f"Failed to delete {args.recording_name} from storage."
+                    )
                 else:
-                    print(
+                    logging.info(
                         f"{args.recording_name} has been successfully deleted from storage."
                     )
             else:
-                print("Operation cancelled.")
+                logging.info("Recording not deleted from storage.")
 
         if args.remove:
             remove_recording(db, args.recording_name)
@@ -285,17 +367,70 @@ def main():
 
     elif args.command == "metadata":
         if not os.path.exists(args.recording_path_local):
-            print("Recording not found")
+            logging.error("Recording not found.")
             sys.exit(0)
 
         # generate metadata (merge with existing and store to file)
         print("Generating metadata...")
-        _ = bagman_utils.generate_metadata(
-            args.recording_path_local,
-            metadata_file_name=config["metadata_file"],
-            merge_existing=True,
-            store_file=True,
-        )
+
+        try:
+            _ = bagman_utils.generate_metadata(
+                args.recording_path_local,
+                metadata_file_name=config["metadata_file"],
+                merge_existing=True,
+                store_file=True,
+            )
+        except Exception as e:
+            logging.error(f"Metadata generation failed: {str(e)}")
+            sys.exit(0)
+
+    elif args.command == "map":
+        print("Generating map plot ...")
+        if args.local:
+            recording_path = args.recording_name
+        else:
+            recording_path = os.path.join(
+                config["recordings_storage"], args.recording_name
+            )
+
+        try:
+            bagman_utils.generate_map(recording_path, config, args.topic)
+        except Exception as e:
+            logging.error(f"Map generation failed: {str(e)}")
+            sys.exit(0)
+
+    elif args.command == "video":
+        print("Generating video file ...")
+        if args.local:
+            recording_path = args.recording_name
+        else:
+            recording_path = os.path.join(
+                config["recordings_storage"], args.recording_name
+            )
+
+        try:
+            if args.topic:
+                bagman_utils.generate_video(recording_path, config, [args.topic])
+            else:
+                bagman_utils.generate_video(recording_path, config)
+        except Exception as e:
+            logging.error(f"Video generation failed: {str(e)}")
+            sys.exit(0)
+
+    elif args.command == "download":
+        print("Downloading recording ...")
+        recording_path = os.path.join(config["recordings_storage"], args.recording_name)
+
+        try:
+            bagman_utils.download_recording(
+                recording_path,
+                args.destination,
+                config["metadata_file"],
+                [config["metadata_file"], "metadata.yaml"],
+            )
+        except Exception as e:
+            logging.error(f"Download failed: {str(e)}")
+            sys.exit(0)
 
 
 if __name__ == "__main__":

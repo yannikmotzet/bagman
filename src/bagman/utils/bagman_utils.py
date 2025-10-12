@@ -1,10 +1,11 @@
+import hashlib
+import logging
 import os
 import re
 import shutil
 import time
 from math import atan2, cos, radians, sin, sqrt
 
-import cv2
 import yaml
 from dotenv import load_dotenv
 from scipy.signal import medfilt
@@ -52,31 +53,32 @@ def load_config(file_path="config.yaml"):
     return replace_env_vars(raw_config)
 
 
-def upload_recording(path, recordings_path, move=False, verbose=True):
+def upload_recording(local_path, storage_path, move=False):
     """
     Upload a recording to the specified recordings directory.
 
+    Args:
+        local_path (str): The path to the recording file to be uploaded.
+        storage_path (str): The path to the recordings directory where the file will be uploaded.
         move (bool, optional): If True, the recording file will be moved to the recordings directory.
                                If False, the recording file will be copied. Default is False.
-        verbose (bool, optional): If True, prints the upload progress. Default is True.
 
     Raises:
         FileNotFoundError: If the recordings directory does not exist.
         FileNotFoundError: If the recording file does not exist.
     """
 
-    if not os.path.exists(recordings_path):
-        raise FileNotFoundError(f"The directory {recordings_path} does not exist.")
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"The file {path} does not exist.")
+    if not os.path.exists(storage_path):
+        raise FileNotFoundError(f"The directory {storage_path} does not exist.")
+    if not os.path.exists(local_path):
+        raise FileNotFoundError(f"The file {local_path} does not exist.")
 
-    if verbose:
-        print(f"Uploading {path} to {recordings_path}...")
-        # TODO add progress bar
-    shutil.copy(path, recordings_path)
+    logging.info(f"Uploading {local_path} to {storage_path}...")
+    # TODO add progress bar
+    shutil.copy(local_path, storage_path)
     if move:
         # TODO check if upload was successful
-        os.remove(path)
+        os.remove(local_path)
 
 
 def load_yaml_file(file):
@@ -96,13 +98,13 @@ def load_yaml_file(file):
         with open(file, "r") as file:
             return yaml.safe_load(file)
     except FileNotFoundError:
-        print(f"Error: {file} not found")
+        logging.error(f"YAML file {os.path.basename(file)} not found.")
         return None
     except yaml.YAMLError as exc:
-        print(f"Error parsing YAML file {os.path.basename(file)}: {exc}")
+        logging.error(f"Error parsing YAML file {os.path.basename(file)}: {exc}")
         return None
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logging.error(f"An unexpected error occurred: {e}")
         return None
 
 
@@ -138,11 +140,11 @@ def generate_metadata(
 
     # merge with existing file
     if merge_existing and os.path.exists(metadata_file):
-        try:
-            rec_metadata_old = load_yaml_file(metadata_file)
-        except Exception as e:
-            print(str(e))
+        rec_metadata_old = load_yaml_file(metadata_file)
+        if rec_metadata_old is None:
+            raise FileNotFoundError("Metadata file could not be loaded.")
             return
+
         rec_metadata_old.update(rec_metadata)
         rec_metadata = rec_metadata_old
 
@@ -151,7 +153,7 @@ def generate_metadata(
         try:
             save_yaml_file(rec_metadata, metadata_file)
         except Exception as e:
-            print(str(e))
+            logging.error(f"Error writing metadata file: {e}")
 
     return rec_metadata
 
@@ -170,6 +172,7 @@ def add_recording(
     Args:
         recording_path (str): The path to the recording file.
         database (BagmanDB): An instance of the BagmanDB class.
+        metadata_file_name (str, optional): The name of the metadata file. Defaults to "rec_metadata.yaml".
         use_existing_metadata (bool, optional): If True, the existing metadata will be used. Defaults to False.
         override_db (bool, optional): If True, existing records in db with the same path will be updated. Defaults to True.
         sort_by (str, optional): The field by which to sort the database records. Defaults to "start_time".
@@ -180,13 +183,14 @@ def add_recording(
         None
     """
     metadata_file_path = os.path.join(recording_path, metadata_file_name)
+    time_added = time.time()
+    is_metadata_modified = False
 
     # use existing metadata file
     if use_existing_metadata and os.path.exists(metadata_file_path):
-        try:
-            rec_metadata = load_yaml_file(metadata_file_path)
-        except Exception as e:
-            print(str(e))
+        rec_metadata = load_yaml_file(metadata_file_path)
+        if rec_metadata is None:
+            raise FileNotFoundError("Metadata file could not be loaded.")
 
     # generate new metadata
     else:
@@ -197,17 +201,38 @@ def add_recording(
             store_file=store_metadata_file,
         )
 
+    # check that recording name is existing in metadata (required as UID in database)
+    if (
+        "name" not in rec_metadata.keys()
+        or not rec_metadata["name"]
+        or rec_metadata["name"] == ""
+    ):
+        logging.warning(
+            "Recording name not found in metadata, setting it to folder name."
+        )
+        rec_metadata["name"] = os.path.basename(recording_path)
+        is_metadata_modified = True
+    elif rec_metadata["name"] != os.path.basename(recording_path):
+        logging.warning(
+            "Recording name in metadata does not match folder name, setting it to folder name."
+        )
+        rec_metadata["name"] = os.path.basename(recording_path)
+        is_metadata_modified = True
+
     # ensure that recording path in metadata is storage path and not local path
     if "path" in rec_metadata.keys():
         if rec_metadata["path"] != recording_path:
+            logging.warning(
+                "Recording path in metadata does not match the provided path, updating it."
+            )
             rec_metadata["path"] = recording_path
-            if store_metadata_file:
-                try:
-                    save_yaml_file(rec_metadata, metadata_file_path)
-                except Exception as e:
-                    print(str(e))
+            is_metadata_modified = True
 
-    time_added = time.time()
+    if is_metadata_modified and store_metadata_file:
+        try:
+            save_yaml_file(rec_metadata, metadata_file_path)
+        except Exception as e:
+            raise Exception(f"Error writing metadata file: {e}")
 
     # override existing entry in db
     if database.contains_record("name", rec_metadata["name"]):
@@ -215,6 +240,13 @@ def add_recording(
             return
 
         existing_record = database.get_record("name", rec_metadata["name"])
+
+        # check that path is the same
+        if existing_record["path"] != rec_metadata["path"]:
+            raise Exception(
+                "Found existing recording with same name but different path in database. Please resolve manually."
+            )
+
         if "time_added" in existing_record.keys():
             time_added = existing_record["time_added"]
 
@@ -232,15 +264,16 @@ def add_recording(
         database.insert_multiple_records(sorted_records)  # insert sorted records
 
 
-def generate_map(recording_name, config="config.yaml", topic=None, speed=True):
+def generate_map(recording_path, config, topic=None, speed=True, html_path=None):
     """
     Generates an HTML map from GPS data in a recording.
     Args:
-        recording_name (str): The name of the recording directory.
-        config (str, optional): Path to the configuration file. Defaults to "config.yaml".
+        recording_path (str): Path to  recording directory.
+        config (dict): Configuration dictionary containing necessary paths and settings.
         topic (str, optional): The specific topic to extract GPS data from. If None, the first topic of type
                                "sensor_msgs/msg/NavSatFix" will be used. Defaults to None.
         speed (bool, optional): If True, the speed of the vehicle will be calculated and displayed on the map. Defaults to True.
+        html_path (str, optional): Path to save the generated HTML map. If None, it will be saved in the resources folder in the recording directory
     Raises:
         FileNotFoundError: If the recording directory does not exist.
     Returns:
@@ -270,34 +303,50 @@ def generate_map(recording_name, config="config.yaml", topic=None, speed=True):
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return R * c
 
-    config = load_config(config)
-
-    recording_path = os.path.join(config["recordings_storage"], recording_name)
     if not os.path.exists(recording_path):
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
-    try:
-        metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
-    except Exception as e:
-        print(f"Error loading metadata file: {e}")
-        return
+    metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
+    if metadata is None:
+        raise FileNotFoundError("Metadata file could not be loaded.")
 
     if topic is None:
+        # search for a NavSatFix topic in metadata
         topics_nav_sat_fix = [
             t["name"]
             for t in metadata["topics"]
             if t["type"] == "sensor_msgs/msg/NavSatFix"
         ]
         if len(topics_nav_sat_fix) == 0:
-            print("no NavSatFix topic found")
+            logging.warning("No NavSatFix topic found")
             return
         topic = topics_nav_sat_fix[0]
+    else:
+        # check if topic is valid
+        if not any(t["name"] == topic for t in metadata["topics"]):
+            logging.warning(f"Topic {topic} not found in metadata")
+            return
+
+        topic_type = next(
+            (t["type"] for t in metadata["topics"] if t["name"] == topic), None
+        )
+        if topic_type != "sensor_msgs/msg/NavSatFix":
+            logging.warning(f"Topic {topic} is not of type sensor_msgs/msg/NavSatFix")
+            return
+
+        # check if topic exsists
+        if not any(
+            t["name"] == topic and t["type"] == "sensor_msgs/msg/NavSatFix"
+            for t in metadata["topics"]
+        ):
+            logging.warning(f"Topic {topic} not found in metadata")
+            return
 
     mcap_files = [os.path.join(recording_path, f["path"]) for f in metadata["files"]]
 
     gps_data = mcap_utils.read_msg_nav_sat_fix(mcap_files, topic)
     if len(gps_data) == 0:
-        print("no NavSatFix messages found")
+        logging.warning("No NavSatFix messages found")
         return
 
     if speed:
@@ -326,91 +375,230 @@ def generate_map(recording_name, config="config.yaml", topic=None, speed=True):
         ]
 
     # generate and store html map
-    html_path = os.path.join(
-        recording_path, config["resources_folder"], f"{recording_name}_map.html"
-    )
+    if html_path is None:
+        html_path = os.path.join(
+            recording_path,
+            config["resources_folder"],
+            f"{os.path.basename(recording_path)}_map.html",
+        )
     os.makedirs(os.path.dirname(html_path), exist_ok=True)
+
     plot_utils.plot_map(gps_data, html_path)
 
 
 def generate_video(
-    recording_name,
-    config="config.yaml",
+    recording_path,
+    config,
     topics=None,
     types=["sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"],
 ):
     """
-    Generates a video from image data in a recording.
+    Generates videos from image data in a recording for multiple topics.
+
     Args:
-        recording_name (str): The name of the recording directory.
-        config (str, optional): Path to the configuration file. Defaults to "config.yaml".
-        topic (str, optional): The specific topic to extract image data from. If None, the first topic of type
-                               "sensor_msgs/msg/Image" will be used. Defaults to None.
+        recording_path (str): Path to the recording directory.
+        config (dict): Configuration dictionary containing necessary paths and settings.
+        topics (list of str, optional): List of topics to extract image data from. If None, all topics of type
+                                         "sensor_msgs/msg/Image" or "sensor_msgs/msg/CompressedImage" will be used.
+
     Raises:
         FileNotFoundError: If the recording directory does not exist.
+
     Returns:
         None
     """
 
-    config = load_config(config)
-
-    recording_path = os.path.join(config["recordings_storage"], recording_name)
     if not os.path.exists(recording_path):
         raise FileNotFoundError(f"The directory {recording_path} does not exist.")
 
     try:
         metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
     except Exception as e:
-        print(f"Error loading metadata file: {e}")
+        logging.error(f"Error loading metadata file: {e}")
         return
 
     if topics is None:
         topics_image = [t["name"] for t in metadata["topics"] if t["type"] in types]
 
-    # check that either Image or ImageCompressed topic is used
-    topics = [t for t in topics_image if not t.endswith("/compressed")]
-    topics += [
-        t
-        for t in topics_image
-        if t.endswith("/compressed") and t.replace("/compressed", "") not in topics
-    ]
+        # check that either Image or CompressedImage topic is used
+        # try to use Image topics, if not available use CompressedImage topics
+        topics = [t for t in topics_image if not t.endswith("compressed")]
+        topics += [
+            t
+            for t in topics_image
+            if t.endswith("compressed") and t.replace("compressed", "") not in topics
+        ]
+
+    if not topics or len(topics) == 0:
+        logging.warning("No valid image topics found")
+        return
 
     mcap_files = [os.path.join(recording_path, f["path"]) for f in metadata["files"]]
 
     for topic in topics:
-        image_data = mcap_utils.read_msg_image(mcap_files, topic)
-
-        if len(image_data) == 0:
-            print("no image messages found")
+        topic_type = next(
+            (t["type"] for t in metadata["topics"] if t["name"] == topic), None
+        )
+        fps = next(
+            (t["frequency"] for t in metadata["topics"] if t["name"] == topic), None
+        )
+        if topic_type not in types:
+            logging.warning(f"Topic {topic} is not of type {types}")
             continue
 
-        fps = (
-            1 / ((image_data[-1]["stamp"] - image_data[0]["stamp"]) / len(image_data))
-            if len(image_data) > 1
-            else 30
-        )
-
-        file_name = f"{recording_name}{topic.replace('/', '_')}.mp4"
+        file_name = f"{os.path.basename(recording_path)}{topic.replace('/', '_')}.mp4"
         video_path = os.path.join(recording_path, config["resources_folder"], file_name)
         os.makedirs(os.path.dirname(video_path), exist_ok=True)
 
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(
-            video_path,
-            fourcc,
-            fps,
-            (image_data[0]["data"].shape[1], image_data[0]["data"].shape[0]),
-        )
+        mcap_utils.mcap_to_video(mcap_files, topic, video_path, fps)
 
-        for frame in image_data:
-            out.write(frame["data"])
-
-        out.release()
-
-        # compress video to H.264 with ffmpeg since OpenCV does only support it in manually compiled version
+        # Compress video to H.264 with ffmpeg since OpenCV does only support it in manually compiled version
         # https://github.com/opencv/opencv-python/issues/100#issuecomment-394159998
         compressed_video_path = video_path.replace(".mp4", "_compressed.mp4")
         command = f"ffmpeg -i {video_path} -vcodec libx264 {compressed_video_path}"
         os.system(f"{command} > /dev/null 2>&1")
         os.remove(video_path)
         os.rename(compressed_video_path, video_path)
+
+
+def compress_recording_image(
+    recording_path, config, compressed_suffix="/compressed", remove_uncompressed=False
+):
+    """
+    Compresses sensor_msgs/msg/Image messages in a recording.
+    Args:
+        recording_path (str): Path to the recording directory.
+        config (dict): Configuration dictionary containing necessary paths and settings.
+        compressed_suffix (str, optional): Suffix to identify compressed image topics. Defaults to "/compressed".
+        remove_uncompressed (bool, optional): If True, uncompressed image topics will be removed after compression. Defaults to False.
+    Raises:
+        FileNotFoundError: If the recording directory does not exist.
+        Exception: If there is an error during the compression process.
+    Returns:
+        None
+    """
+    if not os.path.exists(recording_path):
+        raise FileNotFoundError(f"The directory {recording_path} does not exist.")
+
+    metadata = load_yaml_file(os.path.join(recording_path, config["metadata_file"]))
+    if metadata is None:
+        raise FileNotFoundError("Metadata file could not be loaded.")
+
+    mcap_files = [f["path"] for f in metadata["files"]]
+
+    topics_image = [
+        t["name"] for t in metadata["topics"] if t["type"] == "sensor_msgs/msg/Image"
+    ]
+    topics_compressed_image = [
+        t["name"]
+        for t in metadata["topics"]
+        if t["type"] == "sensor_msgs/msg/CompressedImage"
+    ]
+
+    # keep only image topics that don't have a corresponding compressed topic
+    topics_compressed_image_set = set(topics_compressed_image)
+    uncompressed_image_topics = [
+        topic
+        for topic in topics_image
+        if topic + compressed_suffix not in topics_compressed_image_set
+    ]
+
+    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S", time.gmtime())
+    compressed_folder = os.path.join(recording_path, f"compressed_{timestamp}")
+
+    try:
+        os.mkdir(compressed_folder)
+        for file in mcap_files:
+            mcap_utils.compress_image(
+                os.path.join(recording_path, file),
+                os.path.join(compressed_folder, file),
+                topics=uncompressed_image_topics,
+                compressed_suffix=compressed_suffix,
+                remove_uncompressed=remove_uncompressed,
+            )
+    except Exception as e:
+        raise Exception(f"Error during video compression: {e}")
+
+    # replace the original files with compressed ones
+    for file in mcap_files:
+        original_file = os.path.join(recording_path, file)
+        compressed_file = os.path.join(compressed_folder, file)
+        # TODO check if compressed_file contains valid data
+        if os.path.exists(compressed_file):
+            shutil.move(compressed_file, original_file)
+        os.rmdir(compressed_folder)
+    generate_metadata(recording_path, config["metadata_file"])
+
+
+def download_recording(
+    recording_path, destination, metadata_file, additional_files=[], check_md5=True
+):
+    """
+    Downloads a recording and its associated files from a source directory to a destination directory.
+    Args:
+        recording_path (str): Path to the source directory containing the recording files.
+        destination (str): Path to the destination directory where the recording files will be copied.
+        metadata_file (str): Name of the metadata file in the source directory that contains information about the recording files.
+        additional_files (list, optional): List of additional file names to copy from the source directory. Defaults to an empty list.
+        check_md5 (bool, optional): Whether to perform MD5 checksum validation for file integrity. Defaults to True.
+    Returns:
+        dict: A dictionary containing the download status of each file. Keys are file paths, and values are booleans indicating success (True) or failure (False).
+    Raises:
+        FileNotFoundError: If the source directory, destination directory, or metadata file does not exist.
+    """
+
+    recording_name = os.path.basename(recording_path)
+    destination_path = os.path.join(destination, recording_name)
+    download_status = {}
+
+    if not os.path.exists(recording_path):
+        raise FileNotFoundError(f"The directory {recording_path} does not exist.")
+    if not os.path.exists(destination):
+        raise FileNotFoundError(f"The directory {destination} does not exist.")
+    if not os.path.exists(os.path.join(recording_path, metadata_file)):
+        raise FileNotFoundError(
+            f"The metadata file {metadata_file} does not exist in the recording directory."
+        )
+
+    os.makedirs(destination_path, exist_ok=True)
+
+    metadata = load_yaml_file(os.path.join(recording_path, metadata_file))
+
+    for file in metadata["files"]:
+        file_path = os.path.join(recording_path, file["path"])
+        if not os.path.exists(file_path):
+            download_status[file["path"]] = False
+            logging.warning(f"File {file_path} does not exist, skipping...")
+            continue
+
+        shutil.copy(file_path, destination_path)
+
+        if check_md5:
+            if "md5sum" not in file.keys():
+                download_status[file["path"]] = True
+                logging.warning(
+                    f"No MD5 checksum found for {file_path}, skipping integrity check."
+                )
+                continue
+
+            with open(os.path.join(destination_path, file["path"]), "rb") as f:
+                md5_sum_downloaded = hashlib.md5(f.read()).hexdigest()
+
+            if md5_sum_downloaded != file["md5sum"]:
+                download_status[file["path"]] = False
+                logging.error(
+                    f"MD5 checksum for {file_path} does not match, file may be corrupted."
+                )
+
+        download_status[file["path"]] = True
+
+    # download additional files
+    for file in additional_files:
+        if not os.path.exists(os.path.join(recording_path, file)):
+            download_status[file] = False
+            logging.warning(f"Additional file {file} does not exist, skipping...")
+            continue
+        shutil.copy(os.path.join(recording_path, file), destination_path)
+        download_status[file] = True
+
+    return download_status

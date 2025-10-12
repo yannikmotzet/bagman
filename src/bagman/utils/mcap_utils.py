@@ -1,3 +1,4 @@
+import copy
 import glob
 import hashlib
 import os
@@ -9,6 +10,9 @@ import cv2
 import numpy as np
 from mcap.reader import make_reader
 from mcap_ros2.decoder import DecoderFactory
+from mcap_ros2.writer import Writer as McapWriter
+
+from bagman.utils.schema_ros import schema_ros
 
 
 def get_mcap_info(file: str) -> Dict[str, Any]:
@@ -210,7 +214,9 @@ def read_msg_nav_sat_fix(files, topic, step=1):
         with open(file, "rb") as f:
             reader = make_reader(f, decoder_factories=[DecoderFactory()])
 
-            for schema, channel, _, ros_msg in reader.iter_decoded_messages():
+            for schema, channel, _, ros_msg in reader.iter_decoded_messages(
+                topics=[topic]
+            ):
                 if (
                     channel.topic == topic
                     and schema.name == "sensor_msgs/msg/NavSatFix"
@@ -228,6 +234,26 @@ def read_msg_nav_sat_fix(files, topic, step=1):
                     frame_count += 1
 
     return nav_sat_data
+
+
+def get_opencv_conversion_code(encoding: str):
+    """Map ROS encoding to OpenCV conversion code (to BGR)."""
+    encoding = encoding.lower()
+    return {
+        "rgb8": cv2.COLOR_RGB2BGR,
+        "rgba8": cv2.COLOR_RGBA2BGR,
+        "mono8": cv2.COLOR_GRAY2BGR,
+        "mono16": None,  # No direct conversion; usually for depth
+        "bayer_rggb8": cv2.COLOR_BAYER_RG2BGR,
+        "bayer_bggr8": cv2.COLOR_BAYER_BG2BGR,
+        "bayer_grbg8": cv2.COLOR_BAYER_GR2BGR,
+        "bayer_gbrg8": cv2.COLOR_BAYER_GB2BGR,
+        "yuv422": cv2.COLOR_YUV2BGR_YUY2,
+        "yuv422_yuy2": cv2.COLOR_YUV2BGR_YUY2,
+        "uyvy": cv2.COLOR_YUV2BGR_UYVY,
+        "bgr8": None,  # Already in OpenCV format
+        "bgra8": cv2.COLOR_BGRA2BGR,
+    }.get(encoding, None)
 
 
 def read_msg_image(files, topic):
@@ -251,16 +277,47 @@ def read_msg_image(files, topic):
         with open(file, "rb") as f:
             reader = make_reader(f, decoder_factories=[DecoderFactory()])
 
-            for schema, channel, message, ros_msg in reader.iter_decoded_messages():
-                if channel.topic == topic:
-                    if schema.name == "sensor_msgs/msg/Image":
-                        image_np = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape(
-                            (ros_msg.height, ros_msg.width, -1)
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages(
+                topics=[topic]
+            ):
+                image_np = None
+                if schema.name == "sensor_msgs/msg/Image":
+                    encoding = ros_msg.encoding.lower()
+                    height = ros_msg.height
+                    width = ros_msg.width
+
+                    img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+
+                    # Handle mono8, bayer, RGB, BGR, etc.
+                    if encoding in ["mono8", "mono16"]:
+                        img_np = img_data.reshape((height, width))
+                    elif encoding in ["bgr8", "rgb8", "rgba8", "bgra8"]:
+                        img_np = img_data.reshape(
+                            (
+                                height,
+                                width,
+                                3 if "8" in encoding and "a" not in encoding else 4,
+                            )
                         )
-                    elif schema.name == "sensor_msgs/msg/CompressedImage":
-                        np_arr = np.frombuffer(ros_msg.data, dtype=np.uint8)
-                        # decode JPEG
-                        image_np = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                    elif encoding.startswith("bayer_"):
+                        img_np = img_data.reshape((height, width))
+                    elif encoding in ["yuv422", "yuv422_yuy2", "uyvy"]:
+                        img_np = img_data.reshape((height, width, 2))
+                    else:
+                        raise ValueError(f"Unsupported encoding: {encoding}")
+
+                    conversion_code = get_opencv_conversion_code(encoding)
+                    if conversion_code is not None:
+                        image_np = cv2.cvtColor(img_np, conversion_code)
+                    else:
+                        image_np = img_np  # Already in BGR
+
+                elif schema.name == "sensor_msgs/msg/CompressedImage":
+                    img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+                    # decode JPEG
+                    image_np = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
+
+                if image_np is not None:
                     camera_data.append(
                         {
                             "stamp": ros_msg.header.stamp.sec
@@ -270,3 +327,226 @@ def read_msg_image(files, topic):
                     )
 
     return camera_data
+
+
+def mcap_to_video(files, topic, video_file, fps=None):
+    """
+    Converts image data from a Camera topic in one or more MCAP files into a video file.
+
+    Args:
+        files (Union[str, List[str]]): The path to the MCAP file or a list of paths to MCAP files.
+        topic (str): The topic to read the Camera messages from.
+        video_file (str): The path to the output video file.
+        fps (int): Frames per second for the output video.
+    """
+    if isinstance(files, str):
+        files = [files]
+
+    # get fps and resolution
+    resolution = None
+    with open(files[0], "rb") as f:
+        reader = make_reader(f, decoder_factories=[DecoderFactory()])
+
+        # calculate fps from message count and duration
+        if fps is None:
+            summary = reader.get_summary()
+            channel_id = next(
+                (s.id for k, s in summary.channels.items() if s.topic == topic), None
+            )
+            if channel_id is None:
+                raise ValueError(
+                    f"Channel with topic '{topic}' not found in the provided MCAP files."
+                )
+            message_count = summary.statistics.channel_message_counts[channel_id]
+            duration = (
+                summary.statistics.message_end_time
+                - summary.statistics.message_start_time
+            ) / 1e9  # sec
+            fps = int(message_count / duration) + (message_count % duration > 0)
+
+        # read first message to get resolution
+        for schema, channel, message, ros_msg in reader.iter_decoded_messages(
+            topics=[topic]
+        ):
+            if schema.name == "sensor_msgs/msg/Image":
+                resolution = [ros_msg.width, ros_msg.height]
+            elif schema.name == "sensor_msgs/msg/CompressedImage":
+                img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+                img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
+                resolution = [img.shape[1], img.shape[0]]  # width, height
+            break
+
+    if resolution is None:
+        raise ValueError(
+            "Resolution could not be determined from the provided MCAP files."
+        )
+
+    # video writer
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(
+        video_file,
+        fourcc,
+        fps,
+        (resolution[0], resolution[1]),
+    )
+
+    for file in files:
+        with open(file, "rb") as f:
+            reader = make_reader(f, decoder_factories=[DecoderFactory()])
+
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages(
+                topics=[topic]
+            ):
+                if channel.topic == topic:
+                    image_np = None
+
+                    if schema.name == "sensor_msgs/msg/Image":
+                        encoding = ros_msg.encoding.lower()
+                        height = ros_msg.height
+                        width = ros_msg.width
+
+                        img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+
+                        # Handle mono8, bayer, RGB, BGR, etc.
+                        if encoding in ["mono8", "mono16"]:
+                            img_np = img_data.reshape((height, width))
+                        elif encoding in ["bgr8", "rgb8", "rgba8", "bgra8"]:
+                            img_np = img_data.reshape(
+                                (
+                                    height,
+                                    width,
+                                    3 if "8" in encoding and "a" not in encoding else 4,
+                                )
+                            )
+                        elif encoding.startswith("bayer_"):
+                            img_np = img_data.reshape((height, width))
+                        elif encoding in ["yuv422", "yuv422_yuy2", "uyvy"]:
+                            img_np = img_data.reshape((height, width, 2))
+                        else:
+                            raise ValueError(f"Unsupported encoding: {encoding}")
+
+                        conversion_code = get_opencv_conversion_code(encoding)
+                        if conversion_code is not None:
+                            image_np = cv2.cvtColor(img_np, conversion_code)
+                        else:
+                            image_np = img_np  # Already in BGR
+
+                    elif schema.name == "sensor_msgs/msg/CompressedImage":
+                        img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+                        # Decode JPEG
+                        image_np = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
+
+                    # Write image to video
+                    if image_np is not None:
+                        out.write(image_np)
+    out.release()
+
+
+def compress_image(
+    file,
+    output_file,
+    topics=None,
+    compressed_suffix="/compressed",
+    remove_uncompressed=False,
+):
+    with open(output_file, "wb") as fo:
+        writer = McapWriter(fo)
+
+        with open(file, "rb") as fi:
+            reader = make_reader(fi, decoder_factories=[DecoderFactory()])
+
+            schema_compressed_image = writer.register_msgdef(
+                "sensor_msgs/msg/CompressedImage",
+                schema_ros["sensor_msgs/msg/CompressedImage"],
+            )
+
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages():
+                schema_updated = copy.copy(schema)
+                schema_updated.id = next(
+                    (
+                        s.id
+                        for k, s in writer._writer._Writer__schemas.items()
+                        if s.name == schema.name
+                    ),
+                    None,
+                )
+                if schema_updated.id is None:
+                    schema_updated.id = writer._writer.register_schema(
+                        schema.name, schema.encoding, schema.data
+                    )
+
+                if schema.name == "sensor_msgs/msg/Image":
+                    if topics is not None and channel.topic not in topics:
+                        continue
+
+                    image_np = None
+                    encoding = ros_msg.encoding.lower()
+                    height = ros_msg.height
+                    width = ros_msg.width
+
+                    img_data = np.frombuffer(ros_msg.data, dtype=np.uint8)
+
+                    # handle mono8, bayer, RGB, BGR, etc.
+                    if encoding in ["mono8", "mono16"]:
+                        img_np = img_data.reshape((height, width))
+                    elif encoding in ["bgr8", "rgb8", "rgba8", "bgra8"]:
+                        img_np = img_data.reshape(
+                            (
+                                height,
+                                width,
+                                3 if "8" in encoding and "a" not in encoding else 4,
+                            )
+                        )
+                    elif encoding.startswith("bayer_"):
+                        img_np = img_data.reshape((height, width))
+                    elif encoding in ["yuv422", "yuv422_yuy2", "uyvy"]:
+                        img_np = img_data.reshape((height, width, 2))
+                    else:
+                        raise ValueError(f"Unsupported encoding: {encoding}")
+
+                    conversion_code = get_opencv_conversion_code(encoding)
+                    if conversion_code is not None:
+                        image_np = cv2.cvtColor(img_np, conversion_code)
+                    else:
+                        image_np = img_np  # Already in BGR
+
+                    # compress image
+                    encode_param = [cv2.IMWRITE_JPEG_QUALITY, 90]
+                    result, encoded_image = cv2.imencode(".jpg", image_np, encode_param)
+                    if result:
+                        ros_msg_encoded = {
+                            "header": {
+                                "stamp": {
+                                    "sec": ros_msg.header.stamp.sec,
+                                    "nanosec": ros_msg.header.stamp.nanosec,
+                                },
+                                "frame_id": ros_msg.header.frame_id,
+                            },
+                            "format": "jpeg",
+                            "data": encoded_image.tobytes(),
+                        }
+
+                        topic_compressed = channel.topic + compressed_suffix
+
+                        writer.write_message(
+                            topic=topic_compressed,
+                            schema=schema_compressed_image,
+                            message=ros_msg_encoded,
+                            log_time=message.log_time,
+                            publish_time=message.publish_time,
+                        )
+
+                        if remove_uncompressed:
+                            continue
+
+                # write other messages as is
+                writer.write_message(
+                    topic=channel.topic,
+                    schema=schema_updated,
+                    message=ros_msg,
+                    log_time=message.log_time,
+                    publish_time=message.publish_time,
+                    sequence=message.sequence,
+                )
+
+            writer.finish()

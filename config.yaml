@@ -17,7 +17,8 @@ metadata_file: bagman.yaml
 dashboard_port: 8502
 dash_name: bagman
 dash_icon: '🛍️'
-dash_logo: resources/bagman_logo.png # path to logo file
+dash_logo_light: resources/bagman_logo.png # path to logo file for light mode
+dash_logo_dark: resources/bagman_logo.png # path to logo file for dark mode
 dash_cols_mandatory: [] # colums which will always be displayed
 dash_cols_ignore: ['files', 'topics'] # these columns will be deleted from the dataframe
 dash_cols_default: ['start_time', 'name', 'duration', 'description', 'path'] # columns which are displayed by default, others can be selected
@@ -28,3 +29,9 @@ dash_max_categories: 10 # max unique values for a column to apply categorial fil
 dash_upload_files: #['mcap', 'json', 'yaml', 'txt']  list with allowed file types for upload, leave empty for all
 dash_allow_path_link: False # allow to open link of path in new tab (e.g. for links starting with ftp://)
 # dash_timezone: UTC # specify the timezone to convert datetime columns to (e.g., UTC, Europe/Zurich, America/Los_Angeles). Leave commented to use the system's local timezone.
+# dash_auth_file: .streamlit/authentification.yaml # path to streamlit-authenticator config file, uncomment to disable authentification (https://github.com/mkhorasani/Streamlit-Authenticator?tab=readme-ov-file#3-creating-a-config-file)
+dash_auth_pages: [] # select the pages  ("recordings", "pipeline", "upload") which require authentication
+dash_position_navigation: sidebar # position of navigation bar, can be 'sidebar' or 'top'
+
+# pipeline settings
+prefect_api_url: http://localhost:4200/api # URL of the Prefect API server
