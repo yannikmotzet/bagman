@@ -11,6 +11,7 @@ from bagman.utils import bagman_utils
 from bagman.utils.db import BagmanDB
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("elastic_transport.transport").setLevel(logging.CRITICAL)
 
 
 def arg_parser():

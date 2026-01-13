@@ -2,8 +2,7 @@
 
 ## future release
 ### Added
-- ability to create and run pipelines (e.g. for recording to db, generate map plot and video files)
-- add user authentication for upload and jobs pages on dashboard
+
 - complete writing tests for CLI and utils (requires sample .mcap recording with NavSatFix and Image which can be shared)
 
 ### Changed
@@ -11,6 +10,16 @@
 
 ### Fixed
 
+
+## v0.3.0 - 2025-10-12
+### Added
+- ability to create and run pipelines (e.g. for recording to db, generate map plot and video files)
+- add user authentication
+- compress Image message
+- new CLI commands: video, map, download
+
+### Fixed
+- Resolved numerous minor bugs to improve stability and performance.
 
 ## v0.2.0 - 2025-06-15
 ### Added
