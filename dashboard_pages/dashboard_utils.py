@@ -67,33 +67,9 @@ def select_recording(selected_recording, database, config):
 
     # TODO add button to open recording
 
-    tab_map, tab_video, tab_topics, tab_files, tab_download = st.tabs(
-        ["Map", "Video", "Topics", "Files", "Download"]
+    tab_topics, tab_files, tab_download, tab_map, tab_video = st.tabs(
+        ["Topics", "Files", "Download", "Map", "Video"]
     )
-
-    with tab_map:
-        html_file = os.path.join(
-            recording_data["path"],
-            config["resources_folder"],
-            f"{selected_recording}_map.html",
-        )
-        if os.path.exists(html_file):
-            html_content = open(html_file, "r").read()
-            components.html(html_content, height=600)
-        else:
-            st.info("map not available")
-
-    with tab_video:
-        video_files = glob.glob(
-            os.path.join(recording_data["path"], config["resources_folder"], "*.mp4"),
-            recursive=False,
-        )
-        if video_files:
-            for video_file in video_files:
-                st.text(os.path.basename(video_file))
-                st.video(video_file)
-        else:
-            st.info("video not available")
 
     with tab_topics:
         if "topics" in recording_data:
@@ -144,6 +120,30 @@ def select_recording(selected_recording, database, config):
                 )
         else:
             st.info("please select files to download")
+
+    with tab_map:
+        html_file = os.path.join(
+            recording_data["path"],
+            config["resources_folder"],
+            f"{selected_recording}_map.html",
+        )
+        if os.path.exists(html_file):
+            html_content = open(html_file, "r").read()
+            components.html(html_content, height=600)
+        else:
+            st.info("map not available")
+
+    with tab_video:
+        video_files = glob.glob(
+            os.path.join(recording_data["path"], config["resources_folder"], "*.mp4"),
+            recursive=False,
+        )
+        if video_files:
+            for video_file in video_files:
+                st.text(os.path.basename(video_file))
+                st.video(video_file)
+        else:
+            st.info("video not available")
 
 
 def filter_recording(data, container, config):
