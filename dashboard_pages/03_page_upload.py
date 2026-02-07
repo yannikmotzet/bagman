@@ -6,6 +6,8 @@ import yaml
 from bagman.utils import bagman_utils
 from bagman.utils.db import BagmanDB
 
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
 
 def main():
     st.header("Upload")
@@ -67,16 +69,22 @@ def main():
             else:
                 st.session_state.metadata[key] = st.text_input(f"{key}:", value=value)
 
-    # check if recording already exists
-    button_label = "Upload"
+    if st.session_state["config"]["database_type"] == "json":
+        database_path = st.session_state["config"]["database_uri"]
+        if not os.path.isabs(database_path):
+            database_path = os.path.join(PROJECT_ROOT, database_path)
+        db = BagmanDB(st.session_state["config"]["database_type"], database_path)
+    else:
+        db = BagmanDB(
+            st.session_state["config"]["database_type"],
+            st.session_state["config"]["database_uri"],
+            st.session_state["config"]["database_name"],
+        )
 
+    # check if recording already exists
     storage_exists = os.path.exists(recording_path)
-    db = BagmanDB(
-        st.session_state["config"]["database_type"],
-        st.session_state["config"]["database_uri"],
-    )
     db_exists = db.contains_record("name", recording_name)
-    del db
+    button_label = "Upload"
 
     if storage_exists and db_exists:
         st.warning("⚠️ recording already exists in storage and database")
@@ -122,10 +130,6 @@ def main():
             st.success("✅ upload successful")
 
         # trigger add to database
-        db = BagmanDB(
-            st.session_state["config"]["database_type"],
-            st.session_state["config"]["database_uri"],
-        )
         bagman_utils.add_recording(
             db,
             recording_path,
