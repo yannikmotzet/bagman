@@ -23,8 +23,11 @@ def add_recording(recording_name, config):
         sys.exit(1)
 
     try:
+        # hint: this will fail in case of using the recordings_example.json with a relative path
         db = BagmanDB(
-            config["database_type"], config["database_uri"], config["database_name"]
+            config["database_type"],
+            config["database_uri"],
+            config.get("database_name", "bagman"),
         )
     except Exception as e:
         logger.error(f"Failed to connect to the database: {e}")
